@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>RNA-seq command builder · Shechter Lab</title>
+  <meta name="application-name" content="RNA-seq command builder">
+  <meta name="description" content="Choose your input and analyses; get the lab-rnaseq commands for the Shechter Lab RNA-seq pipeline, in order, ready to copy.">
+  <link rel="icon" href="assets/shechterlab-icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Serif:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="assets/builder.css?v=20261110a">
+  <script>
+    try { var t = localStorage.getItem('rnaseq-builder-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+    window.BUILDER_VERSION = '20261110a';
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#builder-form">Skip to content</a>
+  <header class="hero">
+    <div class="wrap">
+      <a class="brand" href="./" title="RNA-seq command builder">
+        <img src="assets/shechterlab-icon.svg" alt="" width="34" height="34">
+        <div><h1>RNA-seq command builder</h1><small>The lab-rnaseq commands for your data, in order</small></div>
+      </a>
+      <button class="theme-btn" id="theme-btn" type="button" aria-label="Switch light or dark theme">Theme</button>
+    </div>
+  </header>
+  <main class="wrap layout">
+    <div>
+      <p class="lede">Answer the questions; the commands update on the right. They run on the cluster, one step at a time. Everything stays in your browser.</p>
+      <form id="builder-form" onsubmit="return false" autocomplete="off"><p class="loading">Loading…</p></form>
+    </div>
+    <aside class="output" aria-labelledby="out-h">
+      <div class="out-head">
+        <h2 id="out-h">4. Commands</h2>
+        <div class="actions">
+          <button type="button" class="btn primary" id="copy-btn">Copy</button>
+          <button type="button" class="btn" id="download-btn">Download .sh</button>
+          <span id="copy-status" class="status" role="status" aria-live="polite"></span>
+        </div>
+      </div>
+      <pre id="out" tabindex="0" aria-label="Commands"></pre>
+      <p class="muted small">The page address holds your choices: bookmark or share it. Replace the <code>/path/to/...</code> placeholders, or fill the fields above. Values you type are single-quoted for the shell.</p>
+    </aside>
+  </main>
+  <footer>
+    <div class="wrap">
+      Shechter Lab, Albert Einstein College of Medicine. Commands are checked against the pipeline's own command line
+      (<a href="https://github.com/Shechterlab/lab_pipelines">lab_pipelines</a>, <span id="built">lab-rnaseq</span>).
+    </div>
+  </footer>
+  <script src="assets/builder.js?v=20261110a" defer></script>
+</body>
+</html>

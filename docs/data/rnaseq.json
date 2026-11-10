@@ -1,0 +1,178 @@
+{
+  "pipeline": "lab-rnaseq",
+  "title": "RNA-seq command builder",
+  "intro": "Pick what you have and what you want; the page writes the lab-rnaseq commands, in order, for you to copy into a terminal on the cluster. Nothing you type leaves your browser.",
+  "placeholders": {
+    "exp": "/path/to/experiment",
+    "fastq_dir": "/path/to/fastqs",
+    "matrix": "/path/to/counts.tsv",
+    "metadata": "/path/to/metadata.csv"
+  },
+  "moduleOrder": ["rmats", "spliceimpact", "sashimi", "apa", "ipa", "isoformswitch"],
+  "moduleRequires": { "spliceimpact": "rmats", "sashimi": "rmats" },
+  "defaults": {
+    "go": ["BP"],
+    "collections": ["H"],
+    "fgsea": ["HALLMARK", "REACTOME"]
+  },
+  "inputs": [
+    { "id": "fastq", "label": "FASTQ folder", "hint": "Raw reads: the pipeline writes the samplesheet and maps them with nf-core/rnaseq." },
+    { "id": "nfcore", "label": "nf-core/rnaseq results folder", "hint": "A finished nf-core/rnaseq run (the folder with star_salmon/)." },
+    { "id": "matrix", "label": "Count matrix", "hint": "A gene x sample table plus a sample metadata CSV." }
+  ],
+  "sections": [
+    {
+      "id": "install",
+      "title": "1. One-time install",
+      "fields": [
+        { "id": "install", "type": "checkbox", "label": "I have not installed the pipelines yet", "default": false },
+        { "id": "stage_refs", "type": "checkbox", "label": "Also stage the reference genomes (--stage-references)", "default": false, "when": ["install"] }
+      ]
+    },
+    {
+      "id": "input",
+      "title": "2. Your input",
+      "radio": "input",
+      "fields": [
+        { "id": "exp", "type": "text", "label": "Experiment folder", "hint": "One folder per dataset; analysis/ is created inside it.", "when": [] },
+        { "id": "fastq_dir", "type": "text", "label": "FASTQ folder", "when": ["input=fastq"] },
+        { "id": "nfcore", "type": "text", "label": "nf-core results path (optional)", "hint": "Leave empty when it is nfcore_rnaseq/ inside the experiment folder.", "when": ["input=nfcore"] },
+        { "id": "matrix", "type": "text", "label": "Count matrix", "when": ["input=matrix"] },
+        { "id": "metadata", "type": "text", "label": "Metadata CSV", "hint": "Needs sample and condition columns.", "when": ["input=matrix"] },
+        { "id": "genome", "type": "select", "label": "Genome", "default": "hg38", "options": ["hg38", "mm10", "hg38_dm6"], "when": ["input=fastq|nfcore"] },
+        { "id": "organism", "type": "select", "label": "Organism", "default": "human", "options": ["human", "mouse", "drosophila", "rat", "zebrafish"], "when": [] },
+        { "id": "strandedness", "type": "select", "label": "Strandedness", "default": "auto", "options": ["auto", "forward", "reverse", "unstranded"], "when": ["input=fastq"] },
+        { "id": "single_end", "type": "checkbox", "label": "Single-end reads", "default": false, "when": ["input=fastq"] },
+        { "id": "account", "type": "text", "label": "Slurm account (optional)", "when": [] },
+        { "id": "partition", "type": "text", "label": "Slurm partition (optional)", "when": ["input=fastq|nfcore"] },
+        { "id": "email", "type": "text", "label": "Email (optional)", "hint": "Slurm job notifications.", "when": [] }
+      ]
+    },
+    {
+      "id": "analyses",
+      "title": "3. Analyses",
+      "fields": [
+        { "id": "expression", "type": "checkbox", "label": "Gene expression (DESeq2, edgeR, enrichment, report)", "default": true, "disabled": true },
+        { "id": "isoforms", "type": "checkbox", "label": "Isoform-level analyses", "default": false, "disabledWhen": ["input=matrix"], "disabledReason": "Isoform analyses need BAM files, which a count matrix does not have." },
+        { "id": "rmats", "type": "checkbox", "label": "rMATS splicing", "default": true, "group": "isoforms", "when": ["isoforms"] },
+        { "id": "spliceimpact", "type": "checkbox", "label": "SpliceImpactR protein consequences", "default": true, "group": "isoforms", "requires": "rmats", "when": ["isoforms"] },
+        { "id": "sashimi", "type": "checkbox", "label": "Sashimi plots", "default": false, "group": "isoforms", "requires": "rmats", "when": ["isoforms"] },
+        { "id": "apa", "type": "checkbox", "label": "APA (3' UTR)", "default": true, "group": "isoforms", "when": ["isoforms"] },
+        { "id": "ipa", "type": "checkbox", "label": "Intronic polyA", "default": true, "group": "isoforms", "when": ["isoforms"] },
+        { "id": "isoformswitch", "type": "checkbox", "label": "Isoform switching", "default": true, "group": "isoforms", "when": ["isoforms"] },
+        { "id": "design", "type": "checkbox", "label": "Design step: read the contrasts as series and combinations", "default": false },
+        { "id": "go", "type": "checkgroup", "label": "GO ontologies", "options": ["BP", "MF", "CC"], "default": ["BP"], "derived": "go_list" },
+        { "id": "collections", "type": "checkgroup", "label": "MSigDB collections", "options": ["H", "C2", "C5"], "default": ["H"], "derived": "collections_list" },
+        { "id": "fgsea", "type": "checkgroup", "label": "fgsea sets", "options": ["HALLMARK", "REACTOME"], "default": ["HALLMARK", "REACTOME"], "derived": "fgsea_list" },
+        { "id": "style", "type": "select", "label": "Figure style", "default": "", "options": ["", "paper", "paper_single", "grant", "slide"], "optionLabels": { "": "pipeline default" } }
+      ]
+    }
+  ],
+  "config": {
+    "go": { "key": "analysis.go_ontologies" },
+    "collections": { "key": "genesets.collections" },
+    "fgsea": { "key": "analysis.fgsea_sets" },
+    "style": { "key": "figures.style" }
+  },
+  "session": [
+    { "comment": "Every session: activate the lab environment" },
+    { "words": ["conda", "activate", "lab_pipelines"] }
+  ],
+  "installLines": [
+    { "words": ["git", "clone", "https://github.com/Shechterlab/lab_pipelines.git", "&&", "cd", "lab_pipelines", "&&", "bash", "setup.sh", "--only", "rnaseq", { "text": "--stage-references", "when": ["stage_refs"] }] }
+  ],
+  "steps": [
+    {
+      "id": "fastq",
+      "when": ["input=fastq"],
+      "blocks": [
+        { "title": "go to the experiment folder", "lines": [
+          { "words": ["cd", { "value": "exp" }] }
+        ] },
+        { "title": "write the nf-core samplesheet from the FASTQs", "lines": [
+          { "words": ["lab-rnaseq", "samplesheet", { "value": "fastq_dir" }, { "flag": "--strandedness", "value": "strandedness", "when": ["strandedness!=auto"] }, { "flag": "--single-end", "when": ["single_end"] }] },
+          { "comment": "Check the sample names in samplesheet.csv are <group>_REP<n> (edit the sample column if not): setup drafts metadata and contrasts from them." }
+        ] },
+        { "title": "map with nf-core/rnaseq (Slurm)", "lines": [
+          { "words": ["lab-rnaseq", "map", "--dry-run", { "flag": "--genome", "value": "genome" }, { "flag": "--account", "value": "account", "when": ["account"] }, { "flag": "--partition", "value": "partition", "when": ["partition"] }] },
+          { "words": ["lab-rnaseq", "map", { "flag": "--genome", "value": "genome" }, { "flag": "--account", "value": "account", "when": ["account"] }, { "flag": "--partition", "value": "partition", "when": ["partition"] }] },
+          { "comment": "Wait for the mapping job to finish before the next step." },
+          { "words": ["lab-rnaseq", "map", "--status", "--watch"] }
+        ] }
+      ]
+    },
+    {
+      "id": "project",
+      "when": ["input=fastq|nfcore"],
+      "blocks": [
+        { "title": "go to the experiment folder", "when": ["input=nfcore"], "lines": [
+          { "words": ["cd", { "value": "exp" }] }
+        ] },
+        { "title": "create the analysis project", "lines": [
+          { "words": ["lab-rnaseq", "setup", { "flag": "--nfcore-results", "value": "nfcore", "when": ["nfcore"] }, { "flag": "--organism", "value": "organism" }, { "flag": "--reference-preset", "value": "preset", "when": ["input=nfcore", "preset"] }, { "flag": "--modules", "value": "modules_list", "when": ["isoforms_on"] }] },
+          { "comment": "Review analysis/inputs/metadata.csv and analysis/inputs/contrasts.csv before going on." }
+        ] },
+        { "title": "project settings", "skipIfEmpty": true, "lines": [
+          { "words": ["lab-rnaseq", "config", "set", "project.slurm_account", { "value": "account" }], "when": ["account"] },
+          { "words": ["lab-rnaseq", "config", "set", "slurm.partition", { "value": "partition" }], "when": ["partition"] },
+          { "words": ["lab-rnaseq", "config", "set", "project.email", { "value": "email" }], "when": ["email"] },
+          { "words": ["lab-rnaseq", "config", "set", "analysis.go_ontologies", { "value": "go_list" }], "when": ["go_changed"] },
+          { "words": ["lab-rnaseq", "config", "set", "genesets.collections", { "value": "collections_list" }], "when": ["collections_changed"] },
+          { "words": ["lab-rnaseq", "config", "set", "analysis.fgsea_sets", { "value": "fgsea_list" }], "when": ["fgsea_changed"] },
+          { "words": ["lab-rnaseq", "config", "set", "figures.style", { "value": "style" }], "when": ["style"] }
+        ] },
+        { "title": "check the project", "lines": [
+          { "words": ["lab-rnaseq", "check"] }
+        ] },
+        { "title": "gene expression (dry run first, then submit)", "lines": [
+          { "words": ["lab-rnaseq", "expression", "--dry-run", { "flag": "--design", "when": ["design"] }] },
+          { "words": ["lab-rnaseq", "expression", { "flag": "--design", "when": ["design"] }] }
+        ] },
+        { "title": "isoforms (adds to the expression run)", "when": ["isoforms_on"], "lines": [
+          { "words": ["lab-rnaseq", "isoforms", { "flag": "--modules", "value": "modules_list" }, { "flag": "--design", "when": ["design"] }] }
+        ] },
+        { "title": "wait for the jobs, then write the report", "lines": [
+          { "words": ["lab-rnaseq", "status", "--watch"] },
+          { "words": ["lab-rnaseq", "report"] }
+        ] },
+        { "title": "if something stops (leave these commented until needed)", "lines": [
+          { "comment": "lab-rnaseq next     # what to run next, and why" },
+          { "comment": "lab-rnaseq resume   # resubmit only the jobs that did not finish" }
+        ] }
+      ]
+    },
+    {
+      "id": "matrix",
+      "when": ["input=matrix"],
+      "blocks": [
+        { "title": "go to the experiment folder", "lines": [
+          { "words": ["cd", { "value": "exp" }] }
+        ] },
+        { "title": "create the project and check it (dry run)", "lines": [
+          { "words": ["lab-rnaseq", "run", "--dry-run", { "flag": "--project-dir", "text": "analysis" }, { "flag": "--count-matrix", "value": "matrix" }, { "flag": "--metadata", "value": "metadata" }, { "flag": "--organism", "value": "organism" }] },
+          { "comment": "Review analysis/inputs/contrasts.csv (drafted: every group against the first one)." }
+        ] },
+        { "title": "project settings", "skipIfEmpty": true, "lines": [
+          { "words": ["lab-rnaseq", "config", "set", "project.slurm_account", { "value": "account" }], "when": ["account"] },
+          { "words": ["lab-rnaseq", "config", "set", "project.email", { "value": "email" }], "when": ["email"] },
+          { "words": ["lab-rnaseq", "config", "set", "compare.design", "true"], "when": ["design"] },
+          { "words": ["lab-rnaseq", "config", "set", "analysis.go_ontologies", { "value": "go_list" }], "when": ["go_changed"] },
+          { "words": ["lab-rnaseq", "config", "set", "genesets.collections", { "value": "collections_list" }], "when": ["collections_changed"] },
+          { "words": ["lab-rnaseq", "config", "set", "analysis.fgsea_sets", { "value": "fgsea_list" }], "when": ["fgsea_changed"] },
+          { "words": ["lab-rnaseq", "config", "set", "figures.style", { "value": "style" }], "when": ["style"] }
+        ] },
+        { "title": "submit the expression analysis", "lines": [
+          { "words": ["lab-rnaseq", "run", { "flag": "--project-dir", "text": "analysis" }, { "flag": "--count-matrix", "value": "matrix" }, { "flag": "--metadata", "value": "metadata" }, { "flag": "--organism", "value": "organism" }] }
+        ] },
+        { "title": "wait for the jobs, then write the report", "lines": [
+          { "words": ["lab-rnaseq", "status", "--watch"] },
+          { "words": ["lab-rnaseq", "report"] }
+        ] },
+        { "title": "if something stops (leave these commented until needed)", "lines": [
+          { "comment": "lab-rnaseq next     # what to run next, and why" },
+          { "comment": "lab-rnaseq resume   # resubmit only the jobs that did not finish" }
+        ] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3843 @@
+{
+  "pipeline": "lab-rnaseq",
+  "version": "0.9.0",
+  "subcommands": {
+    "init": {
+      "help": "Scaffold a new project directory",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--name"
+          ],
+          "dest": "name",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        }
+      ]
+    },
+    "setup": {
+      "help": "One command from a finished nf-core/rnaseq run to a checked project (scaffold + config + metadata/contrasts drafts + check)",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": "project to create or update (default: the project you are in, else ./analysis)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--nfcore-results"
+          ],
+          "dest": "nfcore_results",
+          "choices": null,
+          "default": null,
+          "help": "nf-core/rnaseq --outdir (contains star_salmon/); default: the project's input.nfcore_results, else nfcore_rnaseq/ (or nextflow_results/, nfcore_results/, results/) in the experiment folder",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--modules"
+          ],
+          "dest": "modules",
+          "choices": null,
+          "default": "",
+          "help": "the isoform modules this project runs (analysis.isoform_modules; default rmats,spliceimpact,apa,ipa,isoformswitch): any of rmats,spliceimpact,sashimi,isoformswitch,apa,ipa, or 'splicing' for rmats,spliceimpact,isoformswitch",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--samplesheet"
+          ],
+          "dest": "samplesheet",
+          "choices": null,
+          "default": null,
+          "help": "nf-core samplesheet; default inputs/samplesheet.csv, the input nf-core recorded in <outdir>/pipeline_info/params_*.json, the experiment folder's samplesheet.csv, <outdir>/pipeline_info/samplesheet.valid.csv, else the count-matrix columns. Its condition, replicate and other non-nf-core columns are used when every sample has them",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--factor"
+          ],
+          "dest": "factor",
+          "choices": null,
+          "default": [],
+          "help": "split a factor out of the sample names: NAME=VAL1,VAL2[:DEFAULT] (repeatable)",
+          "required": false,
+          "nargs": null,
+          "action": "append"
+        },
+        {
+          "flags": [
+            "--replicate-pattern"
+          ],
+          "dest": "replicate_pattern",
+          "choices": null,
+          "default": "[_-]?(?:REP|rep|R|r)(\\d+)$",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--variable"
+          ],
+          "dest": "variable",
+          "choices": null,
+          "default": "",
+          "help": "grouping column for the contrasts (default: condition)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--reference"
+          ],
+          "dest": "reference",
+          "choices": null,
+          "default": "",
+          "help": "reference level (default: CONTROL/WT/untreated-like, else first)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--all-pairwise"
+          ],
+          "dest": "all_pairwise",
+          "choices": null,
+          "default": false,
+          "help": "also every pair of non-reference levels",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--no-series-direct"
+          ],
+          "dest": "no_series_direct",
+          "choices": null,
+          "default": false,
+          "help": "do not add, for a series of groups (D2G, D4G; EN7_1uM, EN7_10uM), the contrast of its last point against its first",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--blocking"
+          ],
+          "dest": "blocking",
+          "choices": null,
+          "default": "",
+          "help": "blocking column(s) for the contrasts, ';'-separated",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--factors"
+          ],
+          "dest": "factors",
+          "choices": null,
+          "default": "",
+          "help": "factorial design columns, e.g. genotype,treatment",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--reference-levels"
+          ],
+          "dest": "reference_levels",
+          "choices": null,
+          "default": "",
+          "help": "factor baselines, e.g. genotype=WT,treatment=none",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--name"
+          ],
+          "dest": "name",
+          "choices": null,
+          "default": "",
+          "help": "project.name in the config (default: directory name)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--organism"
+          ],
+          "dest": "organism",
+          "choices": null,
+          "default": "",
+          "help": "references.organism (human, mouse, ...)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--reference-preset"
+          ],
+          "dest": "reference_preset",
+          "choices": null,
+          "default": "",
+          "help": "references.reference_preset (hg38, mm10)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--overwrite"
+          ],
+          "dest": "overwrite",
+          "choices": null,
+          "default": false,
+          "help": "redraft metadata.csv / contrasts.csv even if filled in",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "run": {
+      "help": "One-step analysis from nf-core/rnaseq results or a count matrix (init + contrasts + analyze)",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--nfcore-results"
+          ],
+          "dest": "nfcore_results",
+          "choices": null,
+          "default": null,
+          "help": "nf-core/rnaseq --outdir (the folder containing star_salmon/)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--spikein-results"
+          ],
+          "dest": "spikein_results",
+          "choices": null,
+          "default": null,
+          "help": "Second nf-core/rnaseq --outdir mapped against the spike-in genome (optional)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--count-matrix"
+          ],
+          "dest": "count_matrix",
+          "choices": null,
+          "default": null,
+          "help": "Gene × sample count matrix (TSV or CSV) instead of --nfcore-results",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--metadata"
+          ],
+          "dest": "metadata",
+          "choices": null,
+          "default": null,
+          "help": "Sample metadata CSV (must have 'sample' and 'condition' columns)",
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--contrasts"
+          ],
+          "dest": "contrasts",
+          "choices": null,
+          "default": null,
+          "help": "Contrasts CSV/YAML (auto-generated if omitted: every group vs --reference)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--reference"
+          ],
+          "dest": "reference",
+          "choices": null,
+          "default": "",
+          "help": "Reference group for auto-generated contrasts (default: first group in metadata)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--no-series-direct"
+          ],
+          "dest": "no_series_direct",
+          "choices": null,
+          "default": false,
+          "help": "do not add, for a series of groups (D2G, D4G; EN7_1uM, EN7_10uM), the contrast of its last point against its first",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": "Project config YAML (uses defaults if omitted)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--name"
+          ],
+          "dest": "name",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--organism"
+          ],
+          "dest": "organism",
+          "choices": null,
+          "default": "human",
+          "help": "Organism shortcut: human, mouse, drosophila, rat, zebrafish",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "check": {
+      "help": "Validate config before submitting",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": "Project config YAML (default: inputs/project_config.yaml)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--nfcore-results"
+          ],
+          "dest": "nfcore_results",
+          "choices": null,
+          "default": null,
+          "help": "nf-core/rnaseq --outdir to validate (default: input.nfcore_results from the config)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--spikein-results"
+          ],
+          "dest": "spikein_results",
+          "choices": null,
+          "default": null,
+          "help": "Spike-in nf-core/rnaseq --outdir to validate (default: input.spikein_nfcore_results)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--metadata"
+          ],
+          "dest": "metadata",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--contrasts"
+          ],
+          "dest": "contrasts",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--count-matrix"
+          ],
+          "dest": "count_matrix",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--bam-manifest"
+          ],
+          "dest": "bam_manifest",
+          "choices": null,
+          "default": null,
+          "help": "CSV (sample,bam_path) of externally-aligned BAMs (e.g. Plasmidsaurus) for internal-priming QC",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--reference-fasta"
+          ],
+          "dest": "reference_fasta",
+          "choices": null,
+          "default": null,
+          "help": "Genome FASTA for --bam-manifest internal-priming QC",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--vendor-qc-dir"
+          ],
+          "dest": "vendor_qc_dir",
+          "choices": null,
+          "default": null,
+          "help": "Directory of vendor-supplied QC artifacts (e.g. Plasmidsaurus MultiQC HTML, mapping-stats CSVs) to carry through into the report",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--stage"
+          ],
+          "dest": "stage",
+          "choices": [
+            "expression",
+            "analyze",
+            "isoforms",
+            "tracks",
+            "all"
+          ],
+          "default": "all",
+          "help": "Validate only dependencies and inputs needed for this stage (isoforms: what `lab-rnaseq isoforms` needs turns from warnings into errors).",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--no-fail"
+          ],
+          "dest": "no_fail",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "metadata": {
+      "help": "Draft inputs/metadata.csv from the nf-core samplesheet",
+      "options": [],
+      "subcommands": {
+        "draft": {
+          "help": "sample,condition[,factors],replicate from <group>_REP<n> sample names",
+          "options": [
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--samplesheet"
+              ],
+              "dest": "samplesheet",
+              "choices": null,
+              "default": null,
+              "help": "nf-core samplesheet (sample,fastq_1,...)",
+              "required": true,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--factor"
+              ],
+              "dest": "factor",
+              "choices": null,
+              "default": [],
+              "help": "NAME=value1,value2[:default] — set column NAME from label tokens, e.g. genotype=D6G,D6M,D7G,D7M:WT (repeatable)",
+              "required": false,
+              "nargs": null,
+              "action": "append"
+            },
+            {
+              "flags": [
+                "--replicate-pattern"
+              ],
+              "dest": "replicate_pattern",
+              "choices": null,
+              "default": "[_-]?(?:REP|rep|R|r)(\\d+)$",
+              "help": "regex (one group) that ends a sample name with its replicate number",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--out"
+              ],
+              "dest": "out",
+              "choices": null,
+              "default": null,
+              "help": "default inputs/metadata.csv",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--overwrite"
+              ],
+              "dest": "overwrite",
+              "choices": null,
+              "default": false,
+              "help": null,
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            }
+          ]
+        }
+      }
+    },
+    "config": {
+      "help": "The project's settings in plain words: show (what differs from the defaults, and from where), explain <key>, set <key> <value>",
+      "options": [],
+      "subcommands": {
+        "show": {
+          "help": "settings that differ from the pipeline defaults",
+          "options": [
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--all"
+              ],
+              "dest": "all",
+              "choices": null,
+              "default": false,
+              "help": "every setting, not only those that differ",
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            },
+            {
+              "flags": [
+                "--section"
+              ],
+              "dest": "section",
+              "choices": null,
+              "default": "",
+              "help": "one section: analysis, figures, references, ...",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            }
+          ]
+        },
+        "explain": {
+          "help": "what a setting does, its default and its value here",
+          "options": [
+            {
+              "flags": [
+                "key"
+              ],
+              "dest": "key",
+              "choices": null,
+              "default": null,
+              "help": "e.g. analysis.rmats_min_reads",
+              "required": true,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            }
+          ]
+        },
+        "set": {
+          "help": "write a section.key setting into inputs/project_config.yaml",
+          "options": [
+            {
+              "flags": [
+                "key"
+              ],
+              "dest": "key",
+              "choices": null,
+              "default": null,
+              "help": "e.g. analysis.rmats_min_reads",
+              "required": true,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "value"
+              ],
+              "dest": "value",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": true,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            }
+          ]
+        }
+      }
+    },
+    "contrasts": {
+      "help": "Draft contrasts from metadata (every level vs reference, factorial designs)",
+      "options": [],
+      "subcommands": {
+        "draft": {
+          "help": null,
+          "options": [
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--metadata"
+              ],
+              "dest": "metadata",
+              "choices": null,
+              "default": null,
+              "help": "default inputs/metadata.csv",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--variable"
+              ],
+              "dest": "variable",
+              "choices": null,
+              "default": "",
+              "help": "grouping column (default: condition/group/treatment)",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--reference"
+              ],
+              "dest": "reference",
+              "choices": null,
+              "default": "",
+              "help": "reference level (default: CONTROL/WT/untreated/DMSO-like, else first)",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--all-pairwise"
+              ],
+              "dest": "all_pairwise",
+              "choices": null,
+              "default": false,
+              "help": "also every pair of non-reference levels",
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            },
+            {
+              "flags": [
+                "--no-series-direct"
+              ],
+              "dest": "no_series_direct",
+              "choices": null,
+              "default": false,
+              "help": "do not add, for a series of groups (D2G, D4G; EN7_1uM, EN7_10uM), the contrast of its last point against its first",
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            },
+            {
+              "flags": [
+                "--blocking"
+              ],
+              "dest": "blocking",
+              "choices": null,
+              "default": "",
+              "help": "blocking column(s) for the pairwise contrasts, ';'-separated",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--factors"
+              ],
+              "dest": "factors",
+              "choices": null,
+              "default": "",
+              "help": "comma-separated factor columns (e.g. genotype,treatment): drafts LRT, adjusted and interaction contrasts as YAML",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--reference-levels"
+              ],
+              "dest": "reference_levels",
+              "choices": null,
+              "default": "",
+              "help": "factor baselines, e.g. genotype=WT,treatment=none",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--format"
+              ],
+              "dest": "format",
+              "choices": [
+                "csv",
+                "yaml"
+              ],
+              "default": "csv",
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--out"
+              ],
+              "dest": "out",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--overwrite"
+              ],
+              "dest": "overwrite",
+              "choices": null,
+              "default": false,
+              "help": null,
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            }
+          ]
+        }
+      }
+    },
+    "references": {
+      "help": "Inspect the effective reference bundle",
+      "options": [],
+      "subcommands": {
+        "show": {
+          "help": null,
+          "options": [
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--config"
+              ],
+              "dest": "config",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--json"
+              ],
+              "dest": "json",
+              "choices": null,
+              "default": false,
+              "help": null,
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            }
+          ]
+        },
+        "check": {
+          "help": null,
+          "options": [
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--config"
+              ],
+              "dest": "config",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--json"
+              ],
+              "dest": "json",
+              "choices": null,
+              "default": false,
+              "help": null,
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            }
+          ]
+        },
+        "list": {
+          "help": null,
+          "options": [
+            {
+              "flags": [
+                "--genome"
+              ],
+              "dest": "genome",
+              "choices": null,
+              "default": [],
+              "help": "genome(s) to show (default: references.genomes of the lab config, else all)",
+              "required": false,
+              "nargs": null,
+              "action": "append"
+            },
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--config"
+              ],
+              "dest": "config",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--json"
+              ],
+              "dest": "json",
+              "choices": null,
+              "default": false,
+              "help": null,
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            }
+          ]
+        },
+        "nfcore-args": {
+          "help": null,
+          "options": [
+            {
+              "flags": [
+                "--genome"
+              ],
+              "dest": "genome",
+              "choices": null,
+              "default": "",
+              "help": "refgenie genome (hg38, mm10, hg38_dm6, ...)",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--pipeline"
+              ],
+              "dest": "pipeline",
+              "choices": [
+                "rnaseq",
+                "atacseq",
+                "chipseq",
+                "cutandrun",
+                "nascent"
+              ],
+              "default": "rnaseq",
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--params-file"
+              ],
+              "dest": "params_file",
+              "choices": null,
+              "default": "",
+              "help": "also write the arguments as a YAML file for nextflow -params-file",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--config"
+              ],
+              "dest": "config",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--json"
+              ],
+              "dest": "json",
+              "choices": null,
+              "default": false,
+              "help": null,
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            }
+          ]
+        },
+        "fetch-spliceimpact": {
+          "help": null,
+          "options": [
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--config"
+              ],
+              "dest": "config",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--json"
+              ],
+              "dest": "json",
+              "choices": null,
+              "default": false,
+              "help": null,
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            }
+          ]
+        },
+        "stage-spliceimpact": {
+          "help": null,
+          "options": [
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--config"
+              ],
+              "dest": "config",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--json"
+              ],
+              "dest": "json",
+              "choices": null,
+              "default": false,
+              "help": null,
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            },
+            {
+              "flags": [
+                "--dest"
+              ],
+              "dest": "dest",
+              "choices": null,
+              "default": "",
+              "help": "folder to build it in (default: <cache_dir>/reference/<species>_gencode<N>, found automatically); e.g. inside a refgenie genome folder",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--force"
+              ],
+              "dest": "force",
+              "choices": null,
+              "default": false,
+              "help": "rebuild even if a matching one exists",
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            },
+            {
+              "flags": [
+                "--genome"
+              ],
+              "dest": "genome",
+              "choices": null,
+              "default": "",
+              "help": "stage for this genome preset (hg38, mm10) with the lab config, without a project (what setup.sh --stage-references runs)",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--local"
+              ],
+              "dest": "local",
+              "choices": null,
+              "default": false,
+              "help": "build everything here instead of sending the GTF parse to Slurm (needs ~10 GB of memory, more than a login node allows)",
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            },
+            {
+              "flags": [
+                "--dry-run"
+              ],
+              "dest": "dry_run",
+              "choices": null,
+              "default": false,
+              "help": "fetch the online inputs, write the Slurm job, do not submit it",
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            }
+          ]
+        },
+        "stage": {
+          "help": null,
+          "options": [
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--config"
+              ],
+              "dest": "config",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--json"
+              ],
+              "dest": "json",
+              "choices": null,
+              "default": false,
+              "help": null,
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            },
+            {
+              "flags": [
+                "--genome"
+              ],
+              "dest": "genome",
+              "choices": null,
+              "default": "",
+              "help": "genome preset (hg38, mm10, hg38_dm6, ...) with the lab config, no project needed",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--no-spliceimpact"
+              ],
+              "dest": "no_spliceimpact",
+              "choices": null,
+              "default": false,
+              "help": "build the download assets only, not spliceimpact_reference",
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            },
+            {
+              "flags": [
+                "--no-uniprot"
+              ],
+              "dest": "uniprot",
+              "choices": null,
+              "default": true,
+              "help": "do not build uniprot_proteome (rest.uniprot.org)",
+              "required": false,
+              "nargs": 0,
+              "action": "store_false"
+            },
+            {
+              "flags": [
+                "--no-labrat"
+              ],
+              "dest": "no_labrat",
+              "choices": null,
+              "default": false,
+              "help": "do not build gencode_gff3 / labrat_reference (APA)",
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            },
+            {
+              "flags": [
+                "--force"
+              ],
+              "dest": "force",
+              "choices": null,
+              "default": false,
+              "help": "rebuild spliceimpact_reference and labrat_reference",
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            },
+            {
+              "flags": [
+                "--local"
+              ],
+              "dest": "local",
+              "choices": null,
+              "default": false,
+              "help": "build spliceimpact_reference and labrat_reference here instead of in Slurm",
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            },
+            {
+              "flags": [
+                "--dry-run"
+              ],
+              "dest": "dry_run",
+              "choices": null,
+              "default": false,
+              "help": "print the refgenie builds and write the Slurm job, run nothing",
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            }
+          ]
+        },
+        "adopt-index": {
+          "help": null,
+          "options": [
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--config"
+              ],
+              "dest": "config",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--json"
+              ],
+              "dest": "json",
+              "choices": null,
+              "default": false,
+              "help": null,
+              "required": false,
+              "nargs": 0,
+              "action": "store_true"
+            },
+            {
+              "flags": [
+                "--genome"
+              ],
+              "dest": "genome",
+              "choices": null,
+              "default": "",
+              "help": "genome preset (hg38, mm10, hg38_dm6, ...) with the lab config, no project needed",
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            },
+            {
+              "flags": [
+                "--from"
+              ],
+              "dest": "source",
+              "choices": null,
+              "default": null,
+              "help": "nf-core/rnaseq --outdir of a run made with --save_reference",
+              "required": true,
+              "nargs": null,
+              "action": "store"
+            }
+          ]
+        }
+      }
+    },
+    "project": {
+      "help": "Inspect the project contract",
+      "options": [],
+      "subcommands": {
+        "show": {
+          "help": null,
+          "options": [
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            }
+          ]
+        },
+        "validate-layout": {
+          "help": null,
+          "options": [
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            }
+          ]
+        },
+        "inventory": {
+          "help": null,
+          "options": [
+            {
+              "flags": [
+                "--project-dir"
+              ],
+              "dest": "project_dir",
+              "choices": null,
+              "default": null,
+              "help": null,
+              "required": false,
+              "nargs": null,
+              "action": "store"
+            }
+          ]
+        }
+      }
+    },
+    "expression": {
+      "help": "Submit the gene-level analysis of a run: global QC, differential expression, enrichment, comparisons; results/<run>/summary.html",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--contrasts"
+          ],
+          "dest": "contrasts",
+          "choices": null,
+          "default": null,
+          "help": "Contrasts CSV (default: inputs/contrasts.csv)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run-samples"
+          ],
+          "dest": "run_samples",
+          "choices": [
+            "",
+            "all",
+            "contrasts"
+          ],
+          "default": null,
+          "help": "the samples the run analyses: all of the metadata, or only those its contrasts compare (default: analysis.run_samples, else all)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": "Project config YAML (default: inputs/project_config.yaml)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--nfcore-results"
+          ],
+          "dest": "nfcore_results",
+          "choices": null,
+          "default": null,
+          "help": "nf-core/rnaseq --outdir (the folder containing star_salmon/). Default: input.nfcore_results from project_config.yaml",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--spikein-results"
+          ],
+          "dest": "spikein_results",
+          "choices": null,
+          "default": null,
+          "help": "Second nf-core/rnaseq --outdir mapped against the spike-in genome; writes size factors for use_spikein contrasts",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--manifest"
+          ],
+          "dest": "manifest",
+          "choices": null,
+          "default": null,
+          "help": "Re-use a manifest.json written by an earlier analyze run instead of re-importing",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--samplesheet"
+          ],
+          "dest": "samplesheet",
+          "choices": null,
+          "default": null,
+          "help": "nf-core samplesheet, only to override Salmon-inferred layout/strandedness for rMATS",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--count-matrix"
+          ],
+          "dest": "count_matrix",
+          "choices": null,
+          "default": null,
+          "help": "Pre-built count matrix (plain or DRUG-Seq with count_suffix) instead of --nfcore-results",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--metadata"
+          ],
+          "dest": "metadata",
+          "choices": null,
+          "default": null,
+          "help": "Metadata CSV (default: inputs/metadata.csv)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--bam-manifest"
+          ],
+          "dest": "bam_manifest",
+          "choices": null,
+          "default": null,
+          "help": "CSV (sample,bam_path,layout,strandedness) of externally-aligned BAMs for rMATS and optional internal-priming QC",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--reference-fasta"
+          ],
+          "dest": "reference_fasta",
+          "choices": null,
+          "default": null,
+          "help": "Genome FASTA for --bam-manifest internal-priming QC",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--vendor-qc-dir"
+          ],
+          "dest": "vendor_qc_dir",
+          "choices": null,
+          "default": null,
+          "help": "Directory of vendor-supplied QC artifacts (e.g. Plasmidsaurus MultiQC HTML, mapping-stats CSVs) to carry through into the report",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run-name"
+          ],
+          "dest": "run_name",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--resume"
+          ],
+          "dest": "resume",
+          "choices": null,
+          "default": false,
+          "help": "Resume --run-name (default: the latest run): resubmit only the jobs that did not finish, keep finished ones and the ones still queued/running (same as `lab-rnaseq resume`)",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--rerun"
+          ],
+          "dest": "rerun",
+          "choices": null,
+          "default": "",
+          "help": "with --resume: comma-separated finished jobs to rerun anyway (e.g. isoformswitch)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--overwrite"
+          ],
+          "dest": "overwrite",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--skip-wrapup"
+          ],
+          "dest": "skip_wrapup",
+          "choices": null,
+          "default": false,
+          "help": "Do not queue the final compare + report job (reporting.auto_report / compare.run_after_analyze)",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--with-isoforms"
+          ],
+          "dest": "with_isoforms",
+          "choices": null,
+          "default": false,
+          "help": "Also submit the isoform modules (the isoforms step) in the same run",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--group-order"
+          ],
+          "dest": "group_order",
+          "choices": null,
+          "default": "",
+          "help": "comma-separated groups to present first, in this order (reports, legends, cross-contrast figures); default: figures.group_order, else the order of the sample sheet / metadata",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--design"
+          ],
+          "dest": "design",
+          "choices": null,
+          "default": false,
+          "help": "Also read the contrasts as the design: series (one treatment at several times or doses), combinations against their parts, the single treatments side by side (off unless asked; compare.design in the config does the same)",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--modules"
+          ],
+          "dest": "modules",
+          "choices": null,
+          "default": "",
+          "help": "isoform modules to run: comma-separated rmats, spliceimpact, sashimi, apa, ipa, isoformswitch, or 'splicing' (rmats, spliceimpact, isoformswitch). Default: analysis.isoform_modules, else rmats, spliceimpact, apa, ipa, isoformswitch (sashimi plots only when named)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--skip"
+          ],
+          "dest": "skip",
+          "choices": null,
+          "default": "",
+          "help": "isoform modules to leave out (e.g. apa); skipping rmats skips spliceimpact and sashimi too",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--contrast"
+          ],
+          "dest": "contrast",
+          "choices": null,
+          "default": [],
+          "help": "run the isoform modules for this contrast only (repeatable; default: every two-group contrast)",
+          "required": false,
+          "nargs": null,
+          "action": "append"
+        }
+      ],
+      "aliases": [
+        "analyze"
+      ]
+    },
+    "map": {
+      "help": "Check an nf-core/rnaseq samplesheet, its FASTQs and the refgenie references, then submit nf-core/rnaseq (the lab's sbatch launcher)",
+      "options": [
+        {
+          "flags": [
+            "--samplesheet"
+          ],
+          "dest": "samplesheet",
+          "choices": null,
+          "default": null,
+          "help": "nf-core samplesheet (default: ./samplesheet.csv, the project's inputs/samplesheet.csv, or the experiment folder's)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--genome"
+          ],
+          "dest": "genome",
+          "choices": null,
+          "default": "hg38",
+          "help": "refgenie genome (default: hg38; mm10, hg38_dm6, ...)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--outdir"
+          ],
+          "dest": "outdir",
+          "choices": null,
+          "default": null,
+          "help": "nf-core --outdir (default: <experiment folder>/nfcore_rnaseq)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--workdir"
+          ],
+          "dest": "workdir",
+          "choices": null,
+          "default": null,
+          "help": "launch folder: Nextflow's work/ and the log (default: the experiment folder)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--revision"
+          ],
+          "dest": "revision",
+          "choices": null,
+          "default": "",
+          "help": "nf-core/rnaseq revision (default: the launcher's)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--extra-params"
+          ],
+          "dest": "extra_params",
+          "choices": null,
+          "default": null,
+          "help": "YAML file of extra nf-core/rnaseq parameters (e.g. 3' mRNA-seq or UMI settings)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--partition"
+          ],
+          "dest": "partition",
+          "choices": null,
+          "default": null,
+          "help": "Slurm partition (default: the config's slurm.map.partition or slurm.partition, else the cluster's default)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--account"
+          ],
+          "dest": "account",
+          "choices": null,
+          "default": null,
+          "help": "Slurm account",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--launcher"
+          ],
+          "dest": "launcher",
+          "choices": null,
+          "default": null,
+          "help": "another sbatch launcher (default: scripts/nfcore_rnaseq.sh)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--local"
+          ],
+          "dest": "local",
+          "choices": null,
+          "default": false,
+          "help": "run the launcher here with bash instead of sbatch",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": "check and print the command, submit nothing",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--status"
+          ],
+          "dest": "status",
+          "choices": null,
+          "default": false,
+          "help": "the submitted job: its state, the tasks finished per nf-core step, the last error",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--watch"
+          ],
+          "dest": "watch",
+          "choices": null,
+          "default": false,
+          "help": "with --status: refresh every minute until the job ends",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "samplesheet": {
+      "help": "Write the nf-core/rnaseq samplesheet from folders of FASTQs (pairs R1/R2, lanes and runs as rows, strandedness auto)",
+      "options": [
+        {
+          "flags": [
+            "fastq_dirs"
+          ],
+          "dest": "fastq_dirs",
+          "choices": null,
+          "default": null,
+          "help": "folder(s) holding the FASTQs",
+          "required": true,
+          "nargs": "+",
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--out"
+          ],
+          "dest": "out",
+          "choices": null,
+          "default": null,
+          "help": "samplesheet to write (default: samplesheet.csv in the experiment folder, where `map` looks)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--strandedness"
+          ],
+          "dest": "strandedness",
+          "choices": [
+            "auto",
+            "forward",
+            "reverse",
+            "unstranded"
+          ],
+          "default": "auto",
+          "help": "library strandedness (default: auto, which nf-core infers with Salmon from a subsample)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--single-end"
+          ],
+          "dest": "single_end",
+          "choices": null,
+          "default": false,
+          "help": "every file is its own read 1 (names such as CTRL_1, CTRL_2 are replicates, not mates)",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--sample-regex"
+          ],
+          "dest": "sample_regex",
+          "choices": null,
+          "default": "",
+          "help": "regex whose first group is the sample name, matched against each file name (e.g. '^(.+?)_S[0-9]+_')",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--no-recursive"
+          ],
+          "dest": "no_recursive",
+          "choices": null,
+          "default": false,
+          "help": "only the folders themselves, not subfolders",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--no-mate-check"
+          ],
+          "dest": "no_mate_check",
+          "choices": null,
+          "default": false,
+          "help": "pair R1/R2 by name alone, without comparing their first read names",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--overwrite"
+          ],
+          "dest": "overwrite",
+          "choices": null,
+          "default": false,
+          "help": "replace an existing samplesheet",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "isoforms": {
+      "help": "Add splicing (rMATS, SpliceImpactR, sashimi plots), APA, intronic polyadenylation and isoform switching to a run; adds them to results/<run>/summary.html",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": "Project config YAML (default: inputs/project_config.yaml)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--contrasts"
+          ],
+          "dest": "contrasts",
+          "choices": null,
+          "default": null,
+          "help": "Contrasts file (default: inputs/contrasts.csv); only contrasts already in the run are used",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--samplesheet"
+          ],
+          "dest": "samplesheet",
+          "choices": null,
+          "default": null,
+          "help": "nf-core samplesheet (default: inputs/samplesheet.csv), for APA's FASTQs",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run"
+          ],
+          "dest": "run",
+          "choices": null,
+          "default": "",
+          "help": "the run to add to (default: the most recent run)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": "write the job scripts and the plan, submit nothing",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--skip-wrapup"
+          ],
+          "dest": "skip_wrapup",
+          "choices": null,
+          "default": false,
+          "help": "Do not queue the isoforms wrap-up (splicing across contrasts, the summary again)",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--group-order"
+          ],
+          "dest": "group_order",
+          "choices": null,
+          "default": "",
+          "help": "comma-separated groups to present first, in this order (default: the run's order)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--design"
+          ],
+          "dest": "design",
+          "choices": null,
+          "default": false,
+          "help": "Also read the contrasts as the design (series, combinations, pairs) for splicing, polyadenylation and isoform switching (compare.design in the config does the same)",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--modules"
+          ],
+          "dest": "modules",
+          "choices": null,
+          "default": "",
+          "help": "isoform modules to run: comma-separated rmats, spliceimpact, sashimi, apa, ipa, isoformswitch, or 'splicing' (rmats, spliceimpact, isoformswitch). Default: analysis.isoform_modules, else rmats, spliceimpact, apa, ipa, isoformswitch (sashimi plots only when named)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--skip"
+          ],
+          "dest": "skip",
+          "choices": null,
+          "default": "",
+          "help": "isoform modules to leave out (e.g. apa); skipping rmats skips spliceimpact and sashimi too",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--contrast"
+          ],
+          "dest": "contrast",
+          "choices": null,
+          "default": [],
+          "help": "run the isoform modules for this contrast only (repeatable; default: every two-group contrast)",
+          "required": false,
+          "nargs": null,
+          "action": "append"
+        }
+      ]
+    },
+    "sashimi": {
+      "help": "Sashimi plots (ggsashimi) of a run's top rMATS events, or of genes and regions",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run"
+          ],
+          "dest": "run",
+          "choices": null,
+          "default": "",
+          "help": "the run (default: the most recent run)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--contrast"
+          ],
+          "dest": "contrast",
+          "choices": null,
+          "default": [],
+          "help": "only this contrast (repeatable)",
+          "required": false,
+          "nargs": null,
+          "action": "append"
+        },
+        {
+          "flags": [
+            "--top"
+          ],
+          "dest": "top",
+          "choices": null,
+          "default": null,
+          "help": "how many rMATS events per contrast (default: analysis.sashimi_top_events, 10)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--cryptic"
+          ],
+          "dest": "cryptic",
+          "choices": null,
+          "default": null,
+          "help": "how many rarely used exons (cryptic exons) per contrast, gained first (default: analysis.sashimi_cryptic_exons, 30; 0: none)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--protein"
+          ],
+          "dest": "protein",
+          "choices": null,
+          "default": null,
+          "help": "also draw this many of the events SpliceImpactR finds changing the protein, per contrast (default: analysis.sashimi_protein_events, 10)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--convergent"
+          ],
+          "dest": "convergent",
+          "choices": null,
+          "default": null,
+          "help": "how many genes changed in more than one way (splicing, APA, isoform switch) per contrast (default: analysis.sashimi_convergent_genes, 10)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--gene"
+          ],
+          "dest": "gene",
+          "choices": null,
+          "default": [],
+          "help": "also draw this gene whole (repeatable, or comma-separated)",
+          "required": false,
+          "nargs": null,
+          "action": "append"
+        },
+        {
+          "flags": [
+            "--region"
+          ],
+          "dest": "region",
+          "choices": null,
+          "default": [],
+          "help": "also draw chr:start-end (repeatable)",
+          "required": false,
+          "nargs": null,
+          "action": "append"
+        },
+        {
+          "flags": [
+            "--per-sample"
+          ],
+          "dest": "per_sample",
+          "choices": null,
+          "default": false,
+          "help": "also one panel per sample",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--samples"
+          ],
+          "dest": "samples",
+          "choices": null,
+          "default": null,
+          "help": "a samples table of your own (sample,group[,bam,panel,plot,color]); bam paths absolute or relative to it; draws --gene / --region",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--out"
+          ],
+          "dest": "out",
+          "choices": null,
+          "default": null,
+          "help": "with --samples: output folder (default: results/<run>/sashimi/<name>)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--list"
+          ],
+          "dest": "list",
+          "choices": null,
+          "default": false,
+          "help": "list the run's sashimi figures (names for --redraw)",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--redraw"
+          ],
+          "dest": "redraw",
+          "choices": null,
+          "default": [],
+          "help": "draw these figures again over their regions with the options below (repeatable, or comma-separated; names as --list prints them)",
+          "required": false,
+          "nargs": null,
+          "action": "append"
+        },
+        {
+          "flags": [
+            "--min-junc"
+          ],
+          "dest": "min_junc",
+          "choices": null,
+          "default": null,
+          "help": "with --redraw: arcs with fewer reads (group mean per sample) are not drawn (default 3)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--colors"
+          ],
+          "dest": "colors",
+          "choices": null,
+          "default": "",
+          "help": "with --redraw: group colours, GROUP=COLOR,... (R name or #hex)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--widen"
+          ],
+          "dest": "widen",
+          "choices": null,
+          "default": null,
+          "help": "with --redraw: bases added on each side",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--aggregate"
+          ],
+          "dest": "aggregate",
+          "choices": [
+            "",
+            "mean",
+            "median",
+            "mean_j",
+            "median_j",
+            "none"
+          ],
+          "default": "",
+          "help": "with --redraw: how a group's replicates are drawn (default mean_j: overlaid coverage, mean junction reads)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--width"
+          ],
+          "dest": "width",
+          "choices": null,
+          "default": null,
+          "help": "with --redraw: figure width (inches)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--height"
+          ],
+          "dest": "height",
+          "choices": null,
+          "default": null,
+          "help": "with --redraw: inches per panel",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--suffix"
+          ],
+          "dest": "suffix",
+          "choices": null,
+          "default": "",
+          "help": "with --redraw: write <figure>_<suffix>.pdf, keeping the original",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--local"
+          ],
+          "dest": "local",
+          "choices": null,
+          "default": false,
+          "help": "draw here instead of in Slurm (needs the sashimi env)",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": "write the configs and job scripts only",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "compare": {
+      "help": "Compare results across contrasts, runs, or against external data",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--left"
+          ],
+          "dest": "left",
+          "choices": null,
+          "default": "",
+          "help": "Left result file (TSV/CSV with gene_id + LFC + padj)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--right"
+          ],
+          "dest": "right",
+          "choices": null,
+          "default": "",
+          "help": "Right result file — can be from another run, lab, or publication",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--left-label"
+          ],
+          "dest": "left_label",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--right-label"
+          ],
+          "dest": "right_label",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--result-files"
+          ],
+          "dest": "result_files",
+          "choices": null,
+          "default": "",
+          "help": "Tab-separated manifest: label<TAB>path (one per line). Produces NxN heatmap + all pairwise comparisons.",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--comparisons"
+          ],
+          "dest": "comparisons",
+          "choices": null,
+          "default": "",
+          "help": "Comparisons CSV: id, left_path, right_path, left_label, right_label",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--analyze-run"
+          ],
+          "dest": "analyze_run",
+          "choices": null,
+          "default": "",
+          "help": "Path to analyze run dir — auto-builds all pairwise comparisons",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run-name"
+          ],
+          "dest": "run_name",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--output-dir"
+          ],
+          "dest": "output_dir",
+          "choices": null,
+          "default": null,
+          "help": "write here instead of results/compare/<run-name> (the wrap-up job: results/<run>/across_contrasts)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--no-splicing"
+          ],
+          "dest": "no_splicing",
+          "choices": null,
+          "default": false,
+          "help": "with --analyze-run: leave out splicing across contrasts",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--splicing-only"
+          ],
+          "dest": "splicing_only",
+          "choices": null,
+          "default": false,
+          "help": "with --analyze-run: only splicing across contrasts (the isoforms wrap-up)",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--design"
+          ],
+          "dest": "design",
+          "choices": null,
+          "default": false,
+          "help": "with --analyze-run: also read the contrasts as the design (series, combinations, pairs; compare.design in the config does the same)",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "compare-gsea": {
+      "help": "Compare fgsea pathway outputs across contrasts or external datasets",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--gsea-files"
+          ],
+          "dest": "gsea_files",
+          "choices": null,
+          "default": "",
+          "help": "Manifest file: label<TAB>path to per-dataset fgsea TSVs",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--analyze-run"
+          ],
+          "dest": "analyze_run",
+          "choices": null,
+          "default": "",
+          "help": "Analyze run directory to auto-discover fgsea outputs",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--output-dir"
+          ],
+          "dest": "output_dir",
+          "choices": null,
+          "default": null,
+          "help": "write here instead of results/compare_gsea/<run-name> (wrap-up: results/<run>/across_contrasts/gene_sets)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--gsea-set"
+          ],
+          "dest": "gsea_set",
+          "choices": null,
+          "default": "HALLMARK",
+          "help": "Collection(s) to compare: HALLMARK, C2, C2_CGP, C2_CP_REACTOME, C6, custom_<file>, several comma-separated, or all (every collection two or more contrasts have)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--pathways"
+          ],
+          "dest": "pathways",
+          "choices": null,
+          "default": null,
+          "help": "Optional CSV/TSV/TXT listing pathways to highlight",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--qvalue-threshold"
+          ],
+          "dest": "qvalue_threshold",
+          "choices": null,
+          "default": 0.1,
+          "help": "Adjusted p-value cutoff used for significance display",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--top-n"
+          ],
+          "dest": "top_n",
+          "choices": null,
+          "default": 18,
+          "help": "Top pathways to auto-select when --pathways is omitted",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--comparison-id"
+          ],
+          "dest": "comparison_id",
+          "choices": null,
+          "default": "",
+          "help": "Optional identifier for output stems",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run-name"
+          ],
+          "dest": "run_name",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "effects": {
+      "help": "Line a run's contrasts up as named effects: one gene table, effect-vs-effect figures, effects.xlsx",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run"
+          ],
+          "dest": "run",
+          "choices": null,
+          "default": "",
+          "help": "analyze run name (default: the most recent run)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--effects"
+          ],
+          "dest": "effects",
+          "choices": null,
+          "default": "",
+          "help": "effects YAML (default: inputs/effects_<run>.yaml, else compare.effects in the project config, else inputs/effects.yaml)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--local"
+          ],
+          "dest": "local",
+          "choices": null,
+          "default": false,
+          "help": "run here instead of as a Slurm job",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "tracks": {
+      "help": "Render deepTools and pyGenomeTracks outputs",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--analyze-run"
+          ],
+          "dest": "analyze_run",
+          "choices": null,
+          "default": "",
+          "help": "Analyze run name (default: latest)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--manifest"
+          ],
+          "dest": "manifest",
+          "choices": null,
+          "default": null,
+          "help": "Map manifest JSON (auto-detected if omitted)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run-name"
+          ],
+          "dest": "run_name",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "finish-run": {
+      "help": "Mark an analyze run finished and write what ran into its RUN_SUMMARY.md (the wrap-up job does this at the end)",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run"
+          ],
+          "dest": "run",
+          "choices": null,
+          "default": "",
+          "help": "run name (default: the most recent run)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        }
+      ]
+    },
+    "status": {
+      "help": "Check job and module completion status",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--stage"
+          ],
+          "dest": "stage",
+          "choices": [
+            "analyze",
+            "tracks",
+            "all"
+          ],
+          "default": "all",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--json"
+          ],
+          "dest": "json",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--all"
+          ],
+          "dest": "all",
+          "choices": null,
+          "default": false,
+          "help": "Show all runs, not just most recent",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--latest"
+          ],
+          "dest": "latest",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--run"
+          ],
+          "dest": "run",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--watch"
+          ],
+          "dest": "watch",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--verbose",
+            "-v"
+          ],
+          "dest": "verbose",
+          "choices": null,
+          "default": false,
+          "help": "Show run dir/stdout/stderr/nextflow paths and a longer log tail (default: one clean summary line per run, plus a short tail on failure)",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "logs": {
+      "help": "Locate or follow run-specific logs",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--stage"
+          ],
+          "dest": "stage",
+          "choices": [
+            "analyze",
+            "tracks"
+          ],
+          "default": "analyze",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run"
+          ],
+          "dest": "run",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--follow"
+          ],
+          "dest": "follow",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--stderr"
+          ],
+          "dest": "stderr",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--nextflow"
+          ],
+          "dest": "nextflow",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--latest"
+          ],
+          "dest": "latest",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "cancel": {
+      "help": "Cancel every queued/running Slurm job of a run (default: the latest)",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--stage"
+          ],
+          "dest": "stage",
+          "choices": [
+            "analyze",
+            "tracks"
+          ],
+          "default": "analyze",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run"
+          ],
+          "dest": "run",
+          "choices": null,
+          "default": "",
+          "help": "run name (default: the most recent run)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--latest"
+          ],
+          "dest": "latest",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--delete"
+          ],
+          "dest": "delete",
+          "choices": null,
+          "default": false,
+          "help": "also delete the run's output (results/<stage>/<run> and its wrap-up compare dirs) so the run name can be reused",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--yes",
+            "-y"
+          ],
+          "dest": "yes",
+          "choices": null,
+          "default": false,
+          "help": "do not ask for confirmation",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "migrate": {
+      "help": "Move runs made before the current results layout into it (<contrast>/ at the run's top, qc/, across_contrasts/, pipeline/) and write their .tsv.gz result tables as plain .tsv",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run"
+          ],
+          "dest": "run",
+          "choices": null,
+          "default": "",
+          "help": "run name (default: the most recent run)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--all"
+          ],
+          "dest": "all",
+          "choices": null,
+          "default": false,
+          "help": "every run of the project in an earlier layout or with .tsv.gz tables",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": "list the moves, change nothing",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--verbose"
+          ],
+          "dest": "verbose",
+          "choices": null,
+          "default": false,
+          "help": "list every move",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--no-report"
+          ],
+          "dest": "no_report",
+          "choices": null,
+          "default": false,
+          "help": "do not write the reports again",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--force"
+          ],
+          "dest": "force",
+          "choices": null,
+          "default": false,
+          "help": "migrate although squeue cannot say whether the run still has jobs",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "next": {
+      "help": "What to run next, and why: from an experiment folder, a project, or its newest run (waiting, a failure, the isoforms step, reruns after the pipeline changed)",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run"
+          ],
+          "dest": "run",
+          "choices": null,
+          "default": "",
+          "help": "run name (default: the most recent run)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        }
+      ]
+    },
+    "resume": {
+      "help": "Resubmit only the jobs of a run that did not finish (finished and still-queued jobs are kept)",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--stage"
+          ],
+          "dest": "stage",
+          "choices": [
+            "analyze"
+          ],
+          "default": "analyze",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run"
+          ],
+          "dest": "run",
+          "choices": null,
+          "default": "",
+          "help": "run name (default: the most recent run)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": "show what would be resubmitted",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--regenerate"
+          ],
+          "dest": "regenerate",
+          "choices": null,
+          "default": false,
+          "help": "first rewrite the run's job scripts and configs with the current pipeline code (after a `git pull` that fixed a job script); results are kept",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--rerun"
+          ],
+          "dest": "rerun",
+          "choices": null,
+          "default": "",
+          "help": "comma-separated jobs to rerun even though they finished: a role for every contrast (isoformswitch, clusterprofiler, spliceimpact, ...) or one node (dTAG_vs_CONTROL.isoformswitch); jobs after them rerun too",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        }
+      ]
+    },
+    "figures": {
+      "help": "Draw a finished run's figures again from its saved tables (no statistics, no Slurm)",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run"
+          ],
+          "dest": "run",
+          "choices": null,
+          "default": "",
+          "help": "run name (default: the latest)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--contrast"
+          ],
+          "dest": "contrast",
+          "choices": null,
+          "default": "",
+          "help": "comma-separated comparison IDs (default: all, and the QC)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--family"
+          ],
+          "dest": "family",
+          "choices": null,
+          "default": "",
+          "help": "comma-separated families: global_qc, deseq2, edger, enrichment, rmats, cryptic, exon_intron, isoformswitch, spliceimpact, apa, isoform_enrichment, across_expression, across_gene_sets, across_splicing, design (default: all)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--only"
+          ],
+          "dest": "only",
+          "choices": null,
+          "default": "",
+          "help": "comma-separated figure names (see --list; default: all)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--set"
+          ],
+          "dest": "set",
+          "choices": null,
+          "default": [],
+          "help": "a setting for this redraw, e.g. figures.branding=false, figures.house_style.base_size=14, figures.formats=[pdf] (repeatable)",
+          "required": false,
+          "nargs": null,
+          "action": "append"
+        },
+        {
+          "flags": [
+            "--no-report"
+          ],
+          "dest": "no_report",
+          "choices": null,
+          "default": false,
+          "help": "do not write the reports again afterwards",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--list"
+          ],
+          "dest": "list",
+          "choices": null,
+          "default": false,
+          "help": "list the families and figure names",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--style"
+          ],
+          "dest": "style",
+          "choices": null,
+          "default": "",
+          "help": "draw with a named set of figures settings (figures.styles: paper, paper_single, grant, slide, or your own)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--save-style"
+          ],
+          "dest": "save_style",
+          "choices": null,
+          "default": "",
+          "help": "save the --set figures settings as a style NAME in inputs/project_config.yaml (draws nothing)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--serve"
+          ],
+          "dest": "serve",
+          "choices": null,
+          "default": false,
+          "help": "open a page in the browser to preview figures with other settings and save them into the run",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--port"
+          ],
+          "dest": "port",
+          "choices": null,
+          "default": 8765,
+          "help": "--serve: port (default 8765)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--host"
+          ],
+          "dest": "host",
+          "choices": null,
+          "default": null,
+          "help": "--serve: address to listen on (default 127.0.0.1: this machine only; 0.0.0.0 for the network)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        }
+      ]
+    },
+    "report": {
+      "help": "Write the run's summary (summary.html + .pdf), figure index (index.html) and comparison pages",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": "Accepted for symmetry with the other commands (the report reads the run's own snapshot)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run-name",
+            "--run"
+          ],
+          "dest": "run_name",
+          "choices": null,
+          "default": "",
+          "help": "Analyze run name (default: latest)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--full"
+          ],
+          "dest": "full",
+          "choices": null,
+          "default": false,
+          "help": "Also write the long reports: expression_report.html / .pdf and, with isoform results, isoforms_report.html / .pdf, each with its share zip; and full_share.zip",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--full-zip"
+          ],
+          "dest": "full_zip",
+          "choices": null,
+          "default": false,
+          "help": "Also write full_share.zip: the summary zip with every figure and table the pages link",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--output"
+          ],
+          "dest": "output",
+          "choices": null,
+          "default": null,
+          "help": "With --full and --part expression or isoforms: that long report's HTML path",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--part"
+          ],
+          "dest": "part",
+          "choices": [
+            "all",
+            "expression",
+            "isoforms"
+          ],
+          "default": "all",
+          "help": "which comparison pages (and, with --full, long reports) to write again: expression, isoforms, or all (default; isoforms when the run has isoform results). The summary and index.html always cover both",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--no-pdf"
+          ],
+          "dest": "no_pdf",
+          "choices": null,
+          "default": false,
+          "help": "Skip the PDFs (WeasyPrint, or headless Chromium)",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--no-share-zip"
+          ],
+          "dest": "no_share_zip",
+          "choices": null,
+          "default": false,
+          "help": "Skip the share zips",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--no-plots"
+          ],
+          "dest": "no_plots",
+          "choices": null,
+          "default": false,
+          "help": "--full: do not embed figure previews in the long reports (faster, smaller files)",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--group-order"
+          ],
+          "dest": "group_order",
+          "choices": null,
+          "default": "",
+          "help": "comma-separated groups whose contrasts come first, in this order (the summary's and pages' tables; default: the run's order)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        }
+      ]
+    }
+  }
+}
