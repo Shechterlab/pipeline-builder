@@ -1,0 +1,184 @@
+{
+  "pipeline": "lab-map",
+  "title": "Map reads",
+  "intro": "Pick the assay and where your reads come from; the page writes the commands that take them to mapped output with nf-core, through the lab's lab-rnaseq, lab-atacseq, lab-chipseq and lab-proseq commands, and stops there. Nothing you type leaves your browser.",
+  "script": {
+    "name": "Shechter Lab map-reads command builder",
+    "file": "map-reads-commands.sh",
+    "waits": "map --status --watch,\n# status after fetch and map"
+  },
+  "derived": ["samplesheet", "accessions"],
+  "placeholders": {
+    "exp": "/path/to/experiment",
+    "project": "/path/to/project",
+    "fastq_dir": "/path/to/fastqs",
+    "fastq_list": "CTRL_REP1_R1.fastq.gz\nCTRL_REP1_R2.fastq.gz\nKO_REP1_S3_L001_R1_001.fastq.gz\nKO_REP1_S3_L001_R2_001.fastq.gz",
+    "accessions": "GSE163049\nSRR13242057\nSRX9673860"
+  },
+  "flags": {
+    "rna_fastq": ["assay=rnaseq", "input=fastq"],
+    "rna_public": ["assay=rnaseq", "input=public"],
+    "oth_fastq": ["assay!=rnaseq", "input=fastq"],
+    "oth_public": ["assay!=rnaseq", "input=public"],
+    "dry_rna_fastq": ["dry_run", "assay=rnaseq", "input=fastq"],
+    "dry_oth": ["dry_run", "assay!=rnaseq"],
+    "dry_oth_public": ["dry_run", "assay!=rnaseq", "input=public"],
+    "chip_type_set": ["assay=chipseq", "chip_assay!=chipseq"],
+    "non_hg38": ["genome!=hg38"]
+  },
+  "inputs": [
+    { "id": "fastq", "label": "FASTQ folder", "hint": "Raw reads already on the cluster." },
+    { "id": "public", "label": "Public data", "hint": "GEO, SRA or ENA accessions, downloaded with nf-core/fetchngs." }
+  ],
+  "sections": [
+    {
+      "id": "install",
+      "title": "1. One-time install",
+      "fields": [
+        { "id": "install", "type": "checkbox", "label": "I have not installed the pipelines yet", "default": false },
+        { "id": "stage_refs", "type": "checkbox", "label": "Also stage the reference genomes (--stage-references)", "default": false, "when": ["install"] }
+      ]
+    },
+    {
+      "id": "assay",
+      "title": "2. Assay",
+      "fields": [
+        { "id": "assay", "type": "select", "wide": true, "label": "Assay", "default": "rnaseq", "options": ["rnaseq", "atacseq", "chipseq", "proseq"],
+          "optionLabels": { "rnaseq": "RNA-seq", "atacseq": "ATAC-seq", "chipseq": "ChIP-seq / CUT&RUN / CUT&Tag", "proseq": "PRO-seq" } },
+        { "id": "chip_assay", "type": "select", "label": "ChIP-seq flavour (assay_type)", "default": "chipseq", "options": ["chipseq", "cutandrun", "cuttag"],
+          "optionLabels": { "chipseq": "ChIP-seq", "cutandrun": "CUT&RUN", "cuttag": "CUT&Tag" },
+          "hint": "Written to assay_type in the project config; CUT&RUN and CUT&Tag map with nf-core/cutandrun.", "when": ["assay=chipseq"] }
+      ]
+    },
+    {
+      "id": "reads",
+      "title": "3. Your reads",
+      "radio": "input",
+      "fields": [
+        { "id": "exp", "type": "text", "label": "Experiment folder", "hint": "One folder per dataset; the nf-core output goes inside it.", "when": ["assay=rnaseq"] },
+        { "id": "project", "type": "text", "trimSlash": true, "label": "Project folder", "hint": "init creates it (a relative path is made absolute).", "when": ["assay!=rnaseq"] },
+        { "id": "fastq_dir", "type": "text", "label": "FASTQ folder", "hint": "Absolute path to the folder holding the .fastq.gz files.", "when": ["input=fastq"] },
+        { "id": "fastq_list", "type": "textarea", "rows": 7, "label": "FASTQ file names", "hint": "Paste the output of ls on that folder, one name per line. R1/R2 mates are paired for you (_R1/_R2, _1/_2, .R1/.R2); a file without a mate is single-end. Lanes such as _L001 become extra rows of the same sample.", "when": ["input=fastq", "assay!=rnaseq"] },
+        { "id": "single_end", "type": "checkbox", "label": "Single-end reads (every file is its own read 1; CTRL_1, CTRL_2 are replicates, not mates)", "default": false, "when": ["input=fastq"] },
+        { "id": "strandedness", "type": "select", "label": "Strandedness", "default": "auto", "options": ["auto", "forward", "reverse", "unstranded"], "when": ["input=fastq", "assay=rnaseq"] },
+        { "id": "proseq_strand", "type": "select", "label": "Strandedness", "default": "forward", "options": ["forward", "reverse", "unstranded", "auto"], "hint": "PRO-seq libraries are almost always stranded: check your kit's documentation.", "when": ["input=fastq", "assay=proseq"] },
+        { "id": "accessions", "type": "textarea", "rows": 5, "label": "Accessions", "hint": "GEO (GSE, GSM), SRA (SRR, SRX, SRS, SRP, PRJNA, SAMN), ENA (ERR, ERX, PRJEB, SAMEA) or DDBJ ids, separated by lines, spaces or commas.", "when": ["input=public"] },
+        { "id": "nf_profile", "type": "select", "label": "nf-core profile (fetchngs)", "default": "singularity", "options": ["singularity", "apptainer", "docker", "conda"], "hint": "The container runtime of your cluster; the lab's usual one is singularity.", "when": ["assay=rnaseq", "input=public"] }
+      ]
+    },
+    {
+      "id": "mapping",
+      "title": "4. Reference and cluster",
+      "fields": [
+        { "id": "genome", "type": "select", "label": "Genome", "default": "hg38", "options": ["hg38", "mm10", "hg38_dm6", "dm6", "rn6", "danRer11"], "hint": "A refgenie genome name; the references must be staged (see the install step)." },
+        { "id": "account", "type": "text", "label": "Slurm account (optional)", "when": ["assay=rnaseq"] },
+        { "id": "partition", "type": "text", "label": "Slurm partition (optional)", "when": ["assay=rnaseq"] }
+      ]
+    },
+    {
+      "id": "advanced",
+      "title": "Advanced (optional)",
+      "collapsible": true,
+      "summary": "Extra nf-core parameters, revision, output folder, run and project names, a dry run only. Empty fields change nothing.",
+      "fields": [
+        { "id": "extra_params", "type": "text", "label": "Extra nf-core/rnaseq parameters (YAML file)", "hint": "For example 3' mRNA-seq or UMI settings.", "when": ["assay=rnaseq"] },
+        { "id": "revision", "type": "text", "label": "nf-core/rnaseq revision", "hint": "Empty uses the launcher's pinned version.", "when": ["assay=rnaseq"] },
+        { "id": "outdir", "type": "text", "label": "nf-core output folder", "hint": "Empty writes nfcore_rnaseq/ in the experiment folder, where lab-rnaseq setup looks for it.", "when": ["assay=rnaseq"] },
+        { "id": "run_name", "type": "text", "label": "Map run name", "hint": "Names the run under results/map/; empty uses map_<timestamp>.", "when": ["assay!=rnaseq"] },
+        { "id": "proj_name", "type": "text", "label": "Project name", "hint": "init --name; empty uses the folder's name.", "when": ["assay!=rnaseq"] },
+        { "id": "dry_run", "type": "checkbox", "label": "Dry run only: write the job scripts, submit nothing", "default": false, "when": ["!rna_public"] }
+      ]
+    }
+  ],
+  "session": [
+    { "comment": "Every session: activate the lab environment" },
+    { "words": ["conda", "activate", "lab_pipelines"] }
+  ],
+  "installLines": [
+    { "words": ["git", "clone", "https://github.com/Shechterlab/lab_pipelines.git", "&&", "cd", "lab_pipelines", "&&", "bash", "setup.sh", "--only", { "value": "assay" }, { "text": "--stage-references", "when": ["stage_refs"] }] }
+  ],
+  "steps": [
+    {
+      "id": "rnaseq",
+      "when": ["assay=rnaseq"],
+      "blocks": [
+        { "title": "go to the experiment folder", "lines": [
+          { "words": ["cd", { "value": "exp" }] }
+        ] },
+        { "title": "write the nf-core samplesheet from the FASTQs", "when": ["input=fastq"], "lines": [
+          { "words": ["lab-rnaseq", "samplesheet", { "value": "fastq_dir" }, { "flag": "--strandedness", "value": "strandedness", "when": ["strandedness!=auto"] }, { "flag": "--single-end", "when": ["single_end"] }] },
+          { "comment": "Check the sample names in samplesheet.csv are <group>_REP<n> (edit the sample column if not): lab-rnaseq setup drafts metadata and contrasts from them." }
+        ] },
+        { "title": "download the public reads with nf-core/fetchngs", "when": ["input=public"], "lines": [
+          { "notes": "acc_notes" },
+          { "comment": "lab-rnaseq has no fetch command: run nf-core/fetchngs directly. Paste your accessions in the '3. Your reads' section and this step writes accessions.csv (one id per line, no header).", "when": ["!acc_has"] },
+          { "heredoc": { "target": ["accessions.csv"], "body": "acc_lines" }, "when": ["acc_has"] },
+          { "comment": "Nextflow is in the lab_nextflow env (setup.sh builds it): conda activate lab_nextflow first, then conda activate lab_pipelines again. This runs on this node and can take hours: use tmux or screen." },
+          { "words": ["nextflow", "run", "nf-core/fetchngs", "-revision", "1.12.0", "-profile", { "value": "nf_profile" }, "--input", "accessions.csv", "--outdir", "\"$PWD/fetchngs\"", "--nf_core_pipeline", "rnaseq", "-resume"] }
+        ] },
+        { "title": "use the fetched samplesheet", "when": ["input=public"], "lines": [
+          { "comment": "Once fetchngs has finished. --nf_core_pipeline rnaseq makes it write a samplesheet nf-core/rnaseq accepts (strandedness auto)." },
+          { "words": ["cp", "fetchngs/samplesheet/samplesheet.csv", "samplesheet.csv"] },
+          { "comment": "fetchngs names the samples after the experiment accessions: edit the sample column to <group>_REP<n> (lab-rnaseq setup drafts metadata and contrasts from them)." }
+        ] },
+        { "title": "map with nf-core/rnaseq (Slurm)", "lines": [
+          { "words": ["lab-rnaseq", "map", "--dry-run", { "flag": "--genome", "value": "genome" }, { "flag": "--account", "value": "account", "when": ["account"] }, { "flag": "--partition", "value": "partition", "when": ["partition"] }, { "flag": "--extra-params", "value": "extra_params", "when": ["extra_params"] }, { "flag": "--revision", "value": "revision", "when": ["revision"] }, { "flag": "--outdir", "value": "outdir", "when": ["outdir"] }] },
+          { "words": ["lab-rnaseq", "map", { "flag": "--genome", "value": "genome" }, { "flag": "--account", "value": "account", "when": ["account"] }, { "flag": "--partition", "value": "partition", "when": ["partition"] }, { "flag": "--extra-params", "value": "extra_params", "when": ["extra_params"] }, { "flag": "--revision", "value": "revision", "when": ["revision"] }, { "flag": "--outdir", "value": "outdir", "when": ["outdir"] }], "when": ["!dry_rna_fastq"] },
+          { "comment": "Wait for the mapping job to finish.", "when": ["!dry_rna_fastq"] },
+          { "words": ["lab-rnaseq", "map", "--status", "--watch"], "when": ["!dry_rna_fastq"] },
+          { "comment": "Dry run only: nothing was submitted. Untick the dry run to get the submit and status lines.", "when": ["dry_rna_fastq"] }
+        ] },
+        { "title": "when it has finished", "when": ["!dry_rna_fastq"], "lines": [
+          { "comment": "The mapped output is nfcore_rnaseq/ (or your output folder). The analysis starts from it with lab-rnaseq setup: see the RNA-seq analysis page." }
+        ] }
+      ]
+    },
+    {
+      "id": "other",
+      "when": ["assay!=rnaseq"],
+      "blocks": [
+        { "title": "create the project", "lines": [
+          { "words": [{ "value": "assay", "prefix": "lab-" }, "init", { "flag": "--project-dir", "value": "project" }, { "flag": "--name", "value": "proj_name", "when": ["proj_name"] }] },
+          { "words": ["sed", "-i", { "text": "'s/^assay_type: .*/assay_type: cutandrun/'", "when": ["chip_assay=cutandrun"] }, { "text": "'s/^assay_type: .*/assay_type: cuttag/'", "when": ["chip_assay=cuttag"] }, { "value": "project", "suffix": "/inputs/project_config.yaml" }], "when": ["chip_type_set"] },
+          { "comment": "init writes inputs/project_config.yaml; if your cluster needs a Slurm account, set project.slurm_account there." },
+          { "comment": "The genome comes from --genome below; references.organism / reference_alias in the config is used later by the analysis, so set it to match.", "when": ["non_hg38"] }
+        ] },
+        { "title": "write the samplesheet from your FASTQ names", "when": ["input=fastq"], "lines": [
+          { "comment": "Paste your FASTQ file names in the '3. Your reads' section (for example the output of ls on the FASTQ folder): this step then writes inputs/samplesheet.csv for you.", "when": ["!sheet_has"] },
+          { "notes": "sheet_notes" },
+          { "heredoc": { "target": [{ "value": "project", "suffix": "/inputs/samplesheet.csv" }], "body": "sheet_lines" }, "when": ["sheet_has"] }
+        ] },
+        { "title": "download the public reads (nf-core/fetchngs)", "when": ["input=public"], "lines": [
+          { "notes": "acc_notes" },
+          { "comment": "Paste your accessions in the '3. Your reads' section: this step then writes inputs/accessions.csv (one id per line, no header: the file nf-core/fetchngs reads).", "when": ["!acc_has"] },
+          { "heredoc": { "target": [{ "value": "project", "suffix": "/inputs/accessions.csv" }], "body": "acc_lines" }, "when": ["acc_has"] },
+          { "words": [{ "value": "assay", "prefix": "lab-" }, "fetch", { "flag": "--project-dir", "value": "project" }, { "flag": "--accessions", "value": "project", "suffix": "/inputs/accessions.csv" }, { "flag": "--config", "value": "project", "suffix": "/inputs/project_config.yaml" }, { "flag": "--run-name", "text": "fetch" }, "--dry-run"] },
+          { "words": [{ "value": "assay", "prefix": "lab-" }, "fetch", { "flag": "--project-dir", "value": "project" }, { "flag": "--accessions", "value": "project", "suffix": "/inputs/accessions.csv" }, { "flag": "--config", "value": "project", "suffix": "/inputs/project_config.yaml" }, { "flag": "--run-name", "text": "fetch" }], "when": ["!dry_oth"] },
+          { "comment": "fetch submits a Slurm job. Repeat the status line until it has finished.", "when": ["!dry_oth"] },
+          { "words": [{ "value": "assay", "prefix": "lab-" }, "status", { "flag": "--project-dir", "value": "project" }, { "flag": "--stage", "text": "fetch" }], "when": ["!dry_oth"] },
+          { "comment": "Dry run only: the job script is written, nothing is downloaded or submitted. Untick the dry run to get the steps that follow.", "when": ["dry_oth"] }
+        ] },
+        { "title": "use the fetched samplesheet", "when": ["input=public", "!dry_oth"], "lines": [
+          { "words": ["cp", { "value": "project", "suffix": "/results/fetch/fetch/output/samplesheet/samplesheet.csv" }, { "value": "project", "suffix": "/inputs/samplesheet.csv" }], "when": ["assay=atacseq"] },
+          { "comment": "fetchngs names the samples after the experiment accessions and sets every replicate to 1: edit the sample and replicate columns of inputs/samplesheet.csv.", "when": ["assay=atacseq"] },
+          { "comment": "The fetched samplesheet is at results/fetch/fetch/output/samplesheet/samplesheet.csv. Write inputs/samplesheet.csv from its sample, fastq_1 and fastq_2 columns, with the header sample,fastq_1,fastq_2,replicate,antibody,control: replicate numbers, each sample's antibody, and as control the sample name of its Input/IgG (blank for the Input/IgG samples).", "when": ["assay=chipseq"] },
+          { "comment": "The fetched samplesheet is at results/fetch/fetch/output/samplesheet/samplesheet.csv. Write inputs/samplesheet.csv from its sample, fastq_1 and fastq_2 columns, with the header sample,fastq_1,fastq_2,strandedness and forward or reverse (not auto) as strandedness.", "when": ["assay=proseq"] }
+        ] },
+        { "title": "check the project", "when": ["!dry_oth_public"], "lines": [
+          { "comment": "For public data: once the fetch has finished and inputs/samplesheet.csv is edited.", "when": ["input=public"] },
+          { "words": [{ "value": "assay", "prefix": "lab-" }, "check", { "flag": "--project-dir", "value": "project" }, { "flag": "--config", "value": "project", "suffix": "/inputs/project_config.yaml" }, { "flag": "--samplesheet", "value": "project", "suffix": "/inputs/samplesheet.csv" }] }
+        ] },
+        { "title": "map with nf-core (Slurm)", "when": ["!dry_oth_public"], "lines": [
+          { "words": [{ "value": "assay", "prefix": "lab-" }, "map", { "flag": "--project-dir", "value": "project" }, { "flag": "--samplesheet", "value": "project", "suffix": "/inputs/samplesheet.csv" }, { "flag": "--config", "value": "project", "suffix": "/inputs/project_config.yaml" }, { "flag": "--genome", "value": "genome" }, { "flag": "--run-name", "value": "run_name", "when": ["run_name"] }, "--dry-run"] },
+          { "words": [{ "value": "assay", "prefix": "lab-" }, "map", { "flag": "--project-dir", "value": "project" }, { "flag": "--samplesheet", "value": "project", "suffix": "/inputs/samplesheet.csv" }, { "flag": "--config", "value": "project", "suffix": "/inputs/project_config.yaml" }, { "flag": "--genome", "value": "genome" }, { "flag": "--run-name", "value": "run_name", "when": ["run_name"] }], "when": ["!dry_oth"] },
+          { "comment": "map submits a Slurm job. Repeat the status line until it has finished.", "when": ["!dry_oth"] },
+          { "words": [{ "value": "assay", "prefix": "lab-" }, "status", { "flag": "--project-dir", "value": "project" }, { "flag": "--stage", "text": "map" }], "when": ["!dry_oth"] },
+          { "comment": "Dry run only: the job script is written under results/map/, nothing is submitted. Untick the dry run to get the submit and status lines.", "when": ["dry_oth"] }
+        ] },
+        { "title": "when it has finished", "when": ["!dry_oth"], "lines": [
+          { "comment": "The mapped output is results/map/<run name>/output/ in the project folder (nf-core's own layout). The analysis (analyze, compare, report) is not part of this page." }
+        ] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,657 @@
+{
+  "pipeline": "lab-atacseq",
+  "version": "0.9.0",
+  "subcommands": {
+    "init": {
+      "help": "Create a project scaffold",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--name"
+          ],
+          "dest": "name",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        }
+      ]
+    },
+    "check": {
+      "help": "Validate config and environment",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--samplesheet"
+          ],
+          "dest": "samplesheet",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        }
+      ]
+    },
+    "fetch": {
+      "help": "Download public data via nf-core/fetchngs",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--accessions"
+          ],
+          "dest": "accessions",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run-name"
+          ],
+          "dest": "run_name",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "map": {
+      "help": "Submit nf-core mapping job",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--samplesheet"
+          ],
+          "dest": "samplesheet",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--genome"
+          ],
+          "dest": "genome",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run-name"
+          ],
+          "dest": "run_name",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "analyze": {
+      "help": "Run differential peak analysis and annotation",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--contrasts"
+          ],
+          "dest": "contrasts",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--manifest"
+          ],
+          "dest": "manifest",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--count-matrix"
+          ],
+          "dest": "count_matrix",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--metadata"
+          ],
+          "dest": "metadata",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run-name"
+          ],
+          "dest": "run_name",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "compare": {
+      "help": "Compare result tables: two (--left/--right), a list (--result-files) or a CSV of pairs (--comparisons); results/compare/<name>/compare_report.html",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--left"
+          ],
+          "dest": "left",
+          "choices": null,
+          "default": "",
+          "help": "Left result table (TSV/CSV with gene_id or peak id, log2FoldChange or logFC, padj or FDR)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--right"
+          ],
+          "dest": "right",
+          "choices": null,
+          "default": "",
+          "help": "Right result table: another run, lab or publication",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--left-label"
+          ],
+          "dest": "left_label",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--right-label"
+          ],
+          "dest": "right_label",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--result-files"
+          ],
+          "dest": "result_files",
+          "choices": null,
+          "default": "",
+          "help": "Tab-separated label<TAB>path, one per line: every pair, and all datasets side by side",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--comparisons"
+          ],
+          "dest": "comparisons",
+          "choices": null,
+          "default": "",
+          "help": "Comparisons CSV: id, left_path, right_path, left_label, right_label",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": "project config (thresholds, Slurm, env); optional",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run-name"
+          ],
+          "dest": "run_name",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "tracks": {
+      "help": "Render deepTools and pyGenomeTracks outputs",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--config"
+          ],
+          "dest": "config",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--analyze-run"
+          ],
+          "dest": "analyze_run",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--manifest"
+          ],
+          "dest": "manifest",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run-name"
+          ],
+          "dest": "run_name",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--dry-run"
+          ],
+          "dest": "dry_run",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "status": {
+      "help": "Summarize pipeline run status",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--all"
+          ],
+          "dest": "all",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--stage"
+          ],
+          "dest": "stage",
+          "choices": [
+            "fetch",
+            "map",
+            "analyze",
+            "all"
+          ],
+          "default": "all",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--json"
+          ],
+          "dest": "json",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        },
+        {
+          "flags": [
+            "--run"
+          ],
+          "dest": "run",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--verbose",
+            "-v"
+          ],
+          "dest": "verbose",
+          "choices": null,
+          "default": false,
+          "help": "Show run dir/stdout/stderr/nextflow paths and a longer log tail (default: one clean summary line per run, plus a short tail on failure)",
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    },
+    "report": {
+      "help": "Generate browsable HTML summary",
+      "options": [
+        {
+          "flags": [
+            "--project-dir"
+          ],
+          "dest": "project_dir",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": true,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--run-name"
+          ],
+          "dest": "run_name",
+          "choices": null,
+          "default": "",
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--output"
+          ],
+          "dest": "output",
+          "choices": null,
+          "default": null,
+          "help": null,
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--no-plots"
+          ],
+          "dest": "no_plots",
+          "choices": null,
+          "default": false,
+          "help": null,
+          "required": false,
+          "nargs": 0,
+          "action": "store_true"
+        }
+      ]
+    }
+  }
+}

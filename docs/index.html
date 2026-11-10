@@ -11,10 +11,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Serif:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="assets/builder.css?v=20261110b">
+  <link rel="stylesheet" href="assets/builder.css?v=20261110d">
   <script>
     try { var t = localStorage.getItem('rnaseq-builder-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
-    window.BUILDER_VERSION = '20261110b';
+    window.BUILDER_VERSION = '20261110d';
   </script>
 </head>
 <body>
@@ -25,6 +25,10 @@
         <img src="assets/shechterlab-icon.svg" alt="" width="34" height="34">
         <div><h1>RNA-seq command builder</h1><small>The lab-rnaseq commands for your data, in order</small></div>
       </a>
+      <nav class="site-nav" aria-label="Pages">
+        <a href="map.html">Map reads</a>
+        <a href="./" aria-current="page">RNA-seq analysis</a>
+      </nav>
       <button class="theme-btn" id="theme-btn" type="button" aria-label="Switch light or dark theme">Theme</button>
     </div>
   </header>
@@ -52,6 +56,6 @@
       (<a href="https://github.com/Shechterlab/lab_pipelines">lab_pipelines</a>, <span id="built">lab-rnaseq</span>).
     </div>
   </footer>
-  <script src="assets/builder.js?v=20261110b" defer></script>
+  <script src="assets/builder.js?v=20261110d" defer></script>
 </body>
 </html>
