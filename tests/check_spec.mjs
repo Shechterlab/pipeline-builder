@@ -12,6 +12,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const B = createRequire(import.meta.url)(path.join(root, 'docs/assets/builder.js'));
 const spec = JSON.parse(readFileSync(path.join(root, 'docs/data/rnaseq.json'), 'utf8'));
 const cli = JSON.parse(readFileSync(path.join(root, 'docs/data/rnaseq_cli.json'), 'utf8'));
+// every section.key the pipeline's config schema accepts, with its type (README: how it is generated)
+const cfgKeys = JSON.parse(readFileSync(path.join(root, 'docs/data/rnaseq_config_keys.json'), 'utf8')).keys;
 
 // ---------------------------------------------------------------- the CLI model
 const subs = cli.subcommands;
@@ -105,7 +107,8 @@ test('config keys the spec writes exist in the pipeline defaults the page docume
     if (w[1] === 'config' && w[2] === 'set') keys.add(w[3]);
   }
   for (const c of Object.values(spec.config)) assert.ok(keys.has(c.key), `config key ${c.key} is never written`);
-  for (const k of keys) assert.match(k, /^[a-z_]+\.[a-z_]+$/, `${k} must be section.key`);
+  for (const k of keys) assert.match(k, /^[a-z0-9_]+\.[a-z0-9_]+$/, `${k} must be section.key`);
+  for (const k of keys) assert.ok(k in cfgKeys, `${k} is not a key of the pipeline's config schema (docs/data/rnaseq_config_keys.json)`);
 });
 
 test('module names in the spec are the ones the CLI documents', () => {
@@ -301,7 +304,7 @@ test('enrichment and figure choices become config set lines only when they diffe
   const lines = cmdLines(build({ input: 'nfcore', style: 'slide' }));
   assert.ok(lines.findIndex((l) => l.includes('figures.style')) > lines.findIndex((l) => l.startsWith('lab-rnaseq setup')));
   assert.ok(lines.findIndex((l) => l.includes('figures.style')) < lines.indexOf('lab-rnaseq check'));
-  assert.deepEqual(spec.defaults, { go: ['BP'], collections: ['H'], fgsea: ['HALLMARK', 'REACTOME'] });
+  assert.deepEqual(spec.defaults, { go: ['BP'], collections: ['H'], fgsea: ['HALLMARK', 'REACTOME'], formats: ['pdf', 'png'] });
 });
 
 test('count matrix input: run --dry-run, settings, run, then status and report', () => {
@@ -354,4 +357,146 @@ test('the expression analysis is always on and not togglable', () => {
   const f = B.allFields(spec).find((x) => x.id === 'expression');
   assert.ok(f.disabled && f.default);
   assert.equal(B.normalize(spec, { expression: false }).expression, true);
+});
+
+// ---------------------------------------------------------------- 3. Advanced (optional)
+const ADV = {
+  padj: '0.05', log2fc: '1', gmt: ' /g/a.gmt , /g/b.gmt', formats: ['png'], group_order: 'CTRL, D2 ,D4', run_name: 'run1',
+  contrast_only: 'D2_vs_CTRL, D4_vs_CTRL', dry_run: false
+};
+const nfIso = { input: 'nfcore', isoforms: true };
+const advCfg = (o, base = nfIso) => cmdLines(build({ ...base, ...o })).filter((l) => /^lab-rnaseq config set (analysis\.(padj|log2fc)|genesets\.gmt|figures\.formats)/.test(l));
+
+test('advanced section: collapsible, after Analyses, fields as specified, defaults are the pipeline defaults', () => {
+  const ids = spec.sections.map((s) => s.id);
+  assert.equal(ids[ids.indexOf('analyses') + 1], 'advanced');
+  const sec = spec.sections.find((s) => s.id === 'advanced');
+  assert.equal(sec.title, 'Advanced (optional)'); assert.ok(sec.collapsible);
+  assert.deepEqual(sec.fields.map((f) => f.id), ['padj', 'log2fc', 'gmt', 'formats', 'group_order', 'run_name', 'contrast_only', 'dry_run']);
+  const d = B.defaultState(spec);
+  assert.equal(d.padj, '0.01'); assert.equal(d.log2fc, '0.6');
+  assert.deepEqual(d.formats, ['pdf', 'png']);
+  assert.equal(d.gmt, ''); assert.equal(d.dry_run, false);
+  assert.equal(cfgKeys['analysis.padj_threshold'], 'number'); assert.equal(cfgKeys['analysis.log2fc_threshold'], 'number');
+});
+
+test('advanced section: with nothing set the output is identical, for every input', () => {
+  for (const input of ['fastq', 'nfcore', 'matrix']) {
+    const base = { input, isoforms: true, design: true, style: 'paper', account: 'a', email: 'e@x.org' };
+    const plain = text(base);
+    const same = { ...base, padj: '0.01', log2fc: '0.60', gmt: ' , ', formats: ['png', 'pdf'], group_order: ',', run_name: '  ', contrast_only: ' ', dry_run: false };
+    assert.equal(text(same), plain, input);
+    assert.equal(text({ ...base, padj: '', log2fc: 'abc', formats: [] }), plain, 'empty or invalid values are ignored');
+    assert.equal(text({ ...base, padj: '2', log2fc: '-1' }), plain, 'out of range values are ignored');
+  }
+});
+
+test('advanced section: each field writes its own lines only when set', () => {
+  assert.deepEqual(advCfg(ADV), [
+    'lab-rnaseq config set analysis.padj_threshold 0.05',
+    'lab-rnaseq config set analysis.log2fc_threshold 1',
+    "lab-rnaseq config set genesets.gmt_files '/g/a.gmt,/g/b.gmt'",
+    'lab-rnaseq config set figures.formats png'
+  ]);
+  assert.deepEqual(advCfg({ padj: '0.001' }), ['lab-rnaseq config set analysis.padj_threshold 0.001']);
+  assert.deepEqual(advCfg({ log2fc: '0.585' }), ['lab-rnaseq config set analysis.log2fc_threshold 0.585']);
+  assert.deepEqual(advCfg({ formats: ['pdf'] }), ['lab-rnaseq config set figures.formats pdf']);
+  assert.deepEqual(advCfg({ formats: ['pdf', 'png'] }), []);
+  assert.deepEqual(advCfg({ gmt: '~/sets/x.gmt' }), ["lab-rnaseq config set genesets.gmt_files ~/'sets/x.gmt'"]);
+  const lines = cmdLines(build({ ...nfIso, ...ADV }));
+  assert.ok(lines.includes("lab-rnaseq expression --dry-run --run-name 'run1' --group-order CTRL,D2,D4"));
+  assert.ok(lines.includes("lab-rnaseq expression --run-name 'run1' --group-order CTRL,D2,D4"));
+  assert.ok(lines.includes("lab-rnaseq isoforms --run 'run1' --modules rmats,spliceimpact,apa,ipa,isoformswitch --contrast D2_vs_CTRL --contrast D4_vs_CTRL --group-order CTRL,D2,D4"));
+  // each field alone changes only its own lines
+  const base = cmdLines(build(nfIso));
+  for (const [k, v, n] of [['group_order', 'A,B', 3], ['run_name', 'r', 3], ['contrast_only', 'x', 1]]) {
+    const got = cmdLines(build({ ...nfIso, [k]: v }));
+    assert.equal(got.length, base.length);
+    assert.equal(got.filter((l, i) => l !== base[i]).length, n, k);
+  }
+  // config lines come before check, like the other settings
+  const all = cmdLines(build({ ...nfIso, padj: '0.05' }));
+  assert.ok(all.findIndex((l) => l.includes('padj_threshold')) < all.indexOf('lab-rnaseq check'));
+  // the count matrix has no expression/isoforms command: only the config settings apply
+  const mx = cmdLines(build({ input: 'matrix', ...ADV }));
+  assert.ok(mx.includes('lab-rnaseq config set analysis.padj_threshold 0.05'));
+  assert.ok(!mx.some((l) => /--group-order|--run-name|--contrast|--run /.test(l)));
+});
+
+test('advanced section: run name, group order and contrasts only where the command accepts them', () => {
+  const accepts = (sub, flag) => !!optionOf(findSub(sub), flag);
+  assert.ok(accepts('expression', '--run-name') && accepts('expression', '--group-order'));
+  assert.ok(accepts('isoforms', '--run') && accepts('isoforms', '--group-order') && accepts('isoforms', '--contrast'));
+  assert.ok(!accepts('isoforms', '--run-name'), 'isoforms calls the run --run, not --run-name');
+  assert.equal(optionOf(findSub('isoforms'), '--contrast').action, 'append', '--contrast is repeatable');
+  // expression --contrast only filters the isoform modules of --with-isoforms, which the page does not use: never written there
+  const lines = cmdLines(build({ ...nfIso, ...ADV }));
+  assert.ok(!lines.some((l) => l.startsWith('lab-rnaseq expression') && l.includes('--contrast')));
+  // no isoforms step: contrasts have nowhere to go
+  assert.ok(!cmdLines(build({ input: 'nfcore', contrast_only: 'a' })).some((l) => l.includes('--contrast')));
+  assert.ok(B.allFields(spec).find((f) => f.id === 'contrast_only').when.includes('isoforms_on'));
+});
+
+test('advanced section: user text is one quoted word, never code', () => {
+  const evil = "x'; touch /tmp/pwn; '$(id)";
+  const lines = cmdLines(build({ ...nfIso, gmt: evil, group_order: evil, run_name: evil, contrast_only: evil + ',b c', padj: '0.05;id', log2fc: '$(id)' }));
+  for (const l of lines) assert.ok(B.shellWords(l).every((w) => w.quoted || !/[;$`]/.test(w.v)), l);
+  const word = (line, flag) => { const w = B.shellWords(line); return w[w.findIndex((x) => x.v === flag) + 1]; };
+  const exp = lines.find((l) => l.startsWith('lab-rnaseq expression --dry-run'));
+  assert.deepEqual(word(exp, '--run-name'), { v: evil, quoted: true });
+  assert.deepEqual(word(exp, '--group-order'), { v: evil, quoted: true });
+  const iso = lines.find((l) => l.startsWith('lab-rnaseq isoforms'));
+  assert.deepEqual(word(iso, '--run'), { v: evil, quoted: true });
+  assert.deepEqual(B.shellWords(iso).filter((w, i, a) => a[i - 1]?.v === '--contrast'), [{ v: evil, quoted: true }, { v: 'b c', quoted: true }]);
+  assert.deepEqual(B.shellWords(lines.find((l) => l.includes('genesets.gmt_files'))).pop(), { v: evil, quoted: true });
+  assert.ok(!lines.some((l) => l.includes('padj_threshold') || l.includes('log2fc_threshold')), 'non-numbers are dropped');
+});
+
+test('advanced section: every line with every advanced field set is a valid command; config keys and values fit the schema', () => {
+  let n = 0;
+  for (const input of ['fastq', 'nfcore', 'matrix']) for (const dry of [false, true]) {
+    for (const l of cmdLines(build({ input, isoforms: true, ...ADV, dry_run: dry }))) {
+      assert.deepEqual(problems(l), []);
+      const w = B.shellWords(l);
+      if (w[1]?.v === 'config' && w[2]?.v === 'set') {
+        n++;
+        assert.ok(w[3].v in cfgKeys, `${w[3].v} is not in the pipeline's config schema`);
+        const t = cfgKeys[w[3].v];
+        if (t === 'number') assert.ok(Number.isFinite(Number(w[4].v)), l);
+        if (t === 'array') assert.ok(!w[4].v.includes(' ') || w[4].quoted, l);
+      }
+    }
+  }
+  assert.ok(n > 10);
+  assert.equal(cfgKeys['genesets.gmt_files'], 'array'); assert.equal(cfgKeys['figures.formats'], 'array');
+});
+
+test('advanced section: dry run only keeps the dry-run lines and drops the submitting ones', () => {
+  const kept = (input, o = {}) => cmdLines(build({ input, isoforms: true, dry_run: true, ...o }));
+  // nf-core: setup and check submit nothing and stay; expression is a dry run; no waiting, no report
+  const nf = kept('nfcore');
+  assert.ok(nf.includes('lab-rnaseq expression --dry-run') && !nf.includes('lab-rnaseq expression'));
+  // isoforms attaches to an expression run, which a dry run does not create: no isoforms line
+  assert.ok(!nf.some((l) => l.startsWith('lab-rnaseq isoforms')));
+  assert.ok(!nf.some((l) => /^lab-rnaseq (status|report)/.test(l)) && !nf.some((l) => /--watch/.test(l)));
+  assert.ok(nf.includes('lab-rnaseq check') && nf.some((l) => l.startsWith('lab-rnaseq setup')));
+  assert.ok(!B.render(build({ input: 'nfcore', dry_run: true }).blocks).includes('lab-rnaseq resume'));
+  // FASTQ: only the map dry run; the later steps need the mapped reads
+  const fq = kept('fastq');
+  assert.ok(fq.includes('lab-rnaseq map --dry-run --genome hg38'));
+  assert.ok(!fq.some((l) => /^lab-rnaseq (setup|check|expression|isoforms|status|report)/.test(l) || l === 'lab-rnaseq map --genome hg38' || l.includes('--status')));
+  assert.match(B.render(build({ input: 'fastq', dry_run: true }).blocks), /# Dry run only: nothing was submitted/);
+  // count matrix: run --dry-run only
+  const mx = kept('matrix', { matrix: '/m', metadata: '/md' });
+  assert.ok(mx.some((l) => l.startsWith('lab-rnaseq run --dry-run')) && !mx.some((l) => l.startsWith('lab-rnaseq run --project-dir')));
+  assert.ok(!mx.some((l) => /^lab-rnaseq (status|report)/.test(l)));
+  // without the box, every submitting line is there
+  assert.ok(cmdLines(build({ input: 'fastq' })).includes('lab-rnaseq map --genome hg38'));
+});
+
+test('advanced section: the choices survive the URL hash', () => {
+  const st = { input: 'nfcore', isoforms: true, ...ADV, dry_run: true };
+  const back = B.fromHash(spec, '#' + B.toHash(spec, st));
+  assert.equal(text(back), text(st));
+  assert.equal(B.toHash(spec, { padj: '0.01', log2fc: '0.6', formats: ['pdf', 'png'] }), '');
 });

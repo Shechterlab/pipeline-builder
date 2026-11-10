@@ -110,3 +110,12 @@ pre#out { margin: 0 0 8px; background: var(--code-bg); color: var(--code-ink); p
 .error { color: var(--accent-dark); }
 footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 0.85rem; padding-block: 16px; }
 footer .wrap { padding-block: 0; }
+
+/* collapsible card (Advanced): the heading is the summary */
+details.collapsible > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+details.collapsible > summary::-webkit-details-marker { display: none; }
+details.collapsible > summary h2 { margin: 0; }
+details.collapsible > summary h2::before { content: "\25B8"; display: inline-block; width: 1.1em; color: var(--muted); transition: transform 0.1s; }
+details.collapsible[open] > summary h2::before { transform: rotate(90deg); }
+details.collapsible[open] > summary { margin-bottom: 10px; }
+details.collapsible > summary:focus-visible { outline: 2px solid var(--teal-600); outline-offset: 4px; }

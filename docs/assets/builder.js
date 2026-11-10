@@ -73,13 +73,28 @@
     var modules = spec.moduleOrder.filter(function (m) { return st[m]; });
     d.modules_list = modules.join(',');
     d.isoforms_on = !!(st.isoforms && st.input !== 'matrix' && modules.length);
-    [['go', 'go_list'], ['collections', 'collections_list'], ['fgsea', 'fgsea_list']].forEach(function (p) {
+    [['go', 'go_list'], ['collections', 'collections_list'], ['fgsea', 'fgsea_list'], ['formats', 'formats_list']].forEach(function (p) {
       var chosen = listText(spec, p[0], st);
       d[p[1]] = chosen.join(',');
       d[p[0] + '_changed'] = chosen.length > 0 && chosen.join(',') !== spec.defaults[p[0]].join(',');
     });
     var base = String(st.genome || '').split('_')[0];
     d.preset = PRESET_OF[base] && PRESET_OF[base] === st.organism ? base : '';
+    allFields(spec).forEach(function (f) {
+      if (f.list) {                                       // comma-separated text: <id>_items (array), <id>_list (joined)
+        var items = String(st[f.id] || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+        d[f.id + '_items'] = items; d[f.id + '_list'] = items.join(',');
+      }
+      if (f.numeric) {                                    // a valid number in range: <id>_num; <id>_changed when not the default
+        var t = String(st[f.id] || '').trim(), n = Number(t);
+        var ok = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(t) && (f.min == null || n >= f.min) && (f.max == null || n <= f.max);
+        d[f.id + '_num'] = ok ? t : '';
+        d[f.id + '_changed'] = ok && n !== Number(f.default);
+      }
+    });
+    // spec "flags": named conditions, so a step can say "not (dry run and FASTQ input)"
+    var vals = Object.assign({}, st, d);
+    Object.keys(spec.flags || {}).forEach(function (k) { d[k] = holds(spec.flags[k], vals); });
     return d;
   }
 
@@ -98,8 +113,10 @@
     var vals = Object.assign({}, st, derive(spec, st));
     var fieldType = {};
     allFields(spec).forEach(function (f) { fieldType[f.id] = f.type; });
+    function word(v) { return /^[A-Za-z0-9_.,=+-]+$/.test(v) ? v : (v ? shellQuote(v) : ''); }
     return {
       vals: vals,
+      word: word,
       // the word for a value key: user-typed text is single-quoted, an empty field falls back to a placeholder
       value: function (key) {
         var v = vals[key];
@@ -110,7 +127,7 @@
           var ph = spec.placeholders && spec.placeholders[key];
           return ph || '';
         }
-        return /^[A-Za-z0-9_.,=+-]+$/.test(v) ? v : (v ? shellQuote(v) : '');
+        return word(v);
       }
     };
   }
@@ -122,6 +139,10 @@
       var w = words[i];
       if (typeof w === 'string') { out.push(w); continue; }
       if (!holds(w.when, r.vals)) continue;
+      if (w.each !== undefined) {                         // the flag repeated for every item of a list
+        (r.vals[w.each] || []).forEach(function (item) { out.push(w.flag, r.word(oneLine(item))); });
+        continue;
+      }
       var v = undefined;
       if (w.value !== undefined) { v = r.value(w.value); if (!v) { if (w.flag) continue; continue; } }
       else if (w.text !== undefined) v = w.text;
@@ -296,7 +317,13 @@
     }
 
     spec.sections.forEach(function (s) {
-      var sec = el('section', { class: 'card', 'aria-labelledby': 'h-' + s.id }, [el('h2', { id: 'h-' + s.id, text: s.title })]);
+      var sec;
+      if (s.collapsible) {                                // closed until asked for (or until the address holds a choice in it)
+        sec = el('details', { class: 'card collapsible', id: 'sec-' + s.id }, [
+          el('summary', {}, [el('h2', { id: 'h-' + s.id, text: s.title }), el('small', { class: 'hint', text: s.summary || '' })])]);
+        var dflt = defaultState(spec);
+        if (s.fields.some(function (f) { return String(state[f.id]) !== String(dflt[f.id]); })) sec.setAttribute('open', '');
+      } else sec = el('section', { class: 'card', 'aria-labelledby': 'h-' + s.id }, [el('h2', { id: 'h-' + s.id, text: s.title })]);
       if (s.radio) {
         var rg = el('div', { class: 'choices', role: 'radiogroup', 'aria-label': 'Your input' });
         spec.inputs.forEach(function (i) {

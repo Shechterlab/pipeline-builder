@@ -13,7 +13,11 @@
   "defaults": {
     "go": ["BP"],
     "collections": ["H"],
-    "fgsea": ["HALLMARK", "REACTOME"]
+    "fgsea": ["HALLMARK", "REACTOME"],
+    "formats": ["pdf", "png"]
+  },
+  "flags": {
+    "dry_fastq": ["dry_run", "input=fastq"]
   },
   "inputs": [
     { "id": "fastq", "label": "FASTQ folder", "hint": "Raw reads: the pipeline writes the samplesheet and maps them with nf-core/rnaseq." },
@@ -66,13 +70,33 @@
         { "id": "fgsea", "type": "checkgroup", "label": "fgsea sets", "options": ["HALLMARK", "REACTOME"], "default": ["HALLMARK", "REACTOME"], "derived": "fgsea_list" },
         { "id": "style", "type": "select", "label": "Figure style", "default": "", "options": ["", "paper", "paper_single", "grant", "slide"], "optionLabels": { "": "pipeline default" } }
       ]
+    },
+    {
+      "id": "advanced",
+      "title": "Advanced (optional)",
+      "collapsible": true,
+      "summary": "Thresholds, your own gene sets, figure formats, group order, run name, a dry run only. Empty or unchanged fields change nothing.",
+      "fields": [
+        { "id": "padj", "type": "text", "numeric": true, "min": 0, "max": 1, "label": "Adjusted p threshold", "hint": "Pipeline default 0.01; written only when changed.", "default": "0.01" },
+        { "id": "log2fc", "type": "text", "numeric": true, "min": 0, "label": "log2 fold-change threshold", "hint": "Pipeline default 0.6; written only when changed.", "default": "0.6" },
+        { "id": "gmt", "type": "text", "list": true, "label": "Custom gene sets (GMT files)", "hint": "One or more paths, comma-separated (no commas inside a path). Each is scored by fgsea in every comparison." },
+        { "id": "formats", "type": "checkgroup", "label": "Figure formats", "options": ["pdf", "png"], "default": ["pdf", "png"], "derived": "formats_list" },
+        { "id": "group_order", "type": "text", "list": true, "label": "Group order", "hint": "Group names, comma-separated, to present first (e.g. CTRL,D2,D4).", "when": ["input=fastq|nfcore"] },
+        { "id": "run_name", "type": "text", "label": "Run name", "hint": "Names the expression run; the isoforms step is told to add to it.", "when": ["input=fastq|nfcore"] },
+        { "id": "contrast_only", "type": "text", "list": true, "label": "Only these comparisons (isoform analyses)", "hint": "Contrast IDs, comma-separated; the isoform modules run for these only.", "when": ["input=fastq|nfcore", "isoforms_on"] },
+        { "id": "dry_run", "type": "checkbox", "label": "Dry run only: write the job scripts, submit nothing", "default": false }
+      ]
     }
   ],
   "config": {
     "go": { "key": "analysis.go_ontologies" },
     "collections": { "key": "genesets.collections" },
     "fgsea": { "key": "analysis.fgsea_sets" },
-    "style": { "key": "figures.style" }
+    "style": { "key": "figures.style" },
+    "padj": { "key": "analysis.padj_threshold" },
+    "log2fc": { "key": "analysis.log2fc_threshold" },
+    "gmt": { "key": "genesets.gmt_files" },
+    "formats": { "key": "figures.formats" }
   },
   "session": [
     { "comment": "Every session: activate the lab environment" },
@@ -95,15 +119,16 @@
         ] },
         { "title": "map with nf-core/rnaseq (Slurm)", "lines": [
           { "words": ["lab-rnaseq", "map", "--dry-run", { "flag": "--genome", "value": "genome" }, { "flag": "--account", "value": "account", "when": ["account"] }, { "flag": "--partition", "value": "partition", "when": ["partition"] }] },
-          { "words": ["lab-rnaseq", "map", { "flag": "--genome", "value": "genome" }, { "flag": "--account", "value": "account", "when": ["account"] }, { "flag": "--partition", "value": "partition", "when": ["partition"] }] },
-          { "comment": "Wait for the mapping job to finish before the next step." },
-          { "words": ["lab-rnaseq", "map", "--status", "--watch"] }
+          { "words": ["lab-rnaseq", "map", { "flag": "--genome", "value": "genome" }, { "flag": "--account", "value": "account", "when": ["account"] }, { "flag": "--partition", "value": "partition", "when": ["partition"] }], "when": ["!dry_run"] },
+          { "comment": "Wait for the mapping job to finish before the next step.", "when": ["!dry_run"] },
+          { "words": ["lab-rnaseq", "map", "--status", "--watch"], "when": ["!dry_run"] },
+          { "comment": "Dry run only: nothing was submitted, so there are no mapped reads yet. Untick the dry run to get the steps that follow.", "when": ["dry_run"] }
         ] }
       ]
     },
     {
       "id": "project",
-      "when": ["input=fastq|nfcore"],
+      "when": ["input=fastq|nfcore", "!dry_fastq"],
       "blocks": [
         { "title": "go to the experiment folder", "when": ["input=nfcore"], "lines": [
           { "words": ["cd", { "value": "exp" }] }
@@ -119,23 +144,28 @@
           { "words": ["lab-rnaseq", "config", "set", "analysis.go_ontologies", { "value": "go_list" }], "when": ["go_changed"] },
           { "words": ["lab-rnaseq", "config", "set", "genesets.collections", { "value": "collections_list" }], "when": ["collections_changed"] },
           { "words": ["lab-rnaseq", "config", "set", "analysis.fgsea_sets", { "value": "fgsea_list" }], "when": ["fgsea_changed"] },
-          { "words": ["lab-rnaseq", "config", "set", "figures.style", { "value": "style" }], "when": ["style"] }
+          { "words": ["lab-rnaseq", "config", "set", "figures.style", { "value": "style" }], "when": ["style"] },
+          { "words": ["lab-rnaseq", "config", "set", "analysis.padj_threshold", { "value": "padj_num" }], "when": ["padj_changed"] },
+          { "words": ["lab-rnaseq", "config", "set", "analysis.log2fc_threshold", { "value": "log2fc_num" }], "when": ["log2fc_changed"] },
+          { "words": ["lab-rnaseq", "config", "set", "genesets.gmt_files", { "value": "gmt_list" }], "when": ["gmt_list"] },
+          { "words": ["lab-rnaseq", "config", "set", "figures.formats", { "value": "formats_list" }], "when": ["formats_changed"] }
         ] },
         { "title": "check the project", "lines": [
           { "words": ["lab-rnaseq", "check"] }
         ] },
         { "title": "gene expression (dry run first, then submit)", "lines": [
-          { "words": ["lab-rnaseq", "expression", "--dry-run", { "flag": "--design", "when": ["design"] }] },
-          { "words": ["lab-rnaseq", "expression", { "flag": "--design", "when": ["design"] }] }
+          { "words": ["lab-rnaseq", "expression", "--dry-run", { "flag": "--run-name", "value": "run_name" }, { "flag": "--group-order", "value": "group_order_list" }, { "flag": "--design", "when": ["design"] }] },
+          { "words": ["lab-rnaseq", "expression", { "flag": "--run-name", "value": "run_name" }, { "flag": "--group-order", "value": "group_order_list" }, { "flag": "--design", "when": ["design"] }], "when": ["!dry_run"] }
         ] },
         { "title": "isoforms (adds to the expression run)", "when": ["isoforms_on"], "lines": [
-          { "words": ["lab-rnaseq", "isoforms", { "flag": "--modules", "value": "modules_list" }, { "flag": "--design", "when": ["design"] }] }
+          { "comment": "Dry run only: isoforms attaches to an expression run, which a dry run does not create. Untick the dry run to get this step.", "when": ["dry_run"] },
+          { "when": ["!dry_run"], "words": ["lab-rnaseq", "isoforms", { "flag": "--run", "value": "run_name" }, { "flag": "--modules", "value": "modules_list" }, { "flag": "--contrast", "each": "contrast_only_items" }, { "flag": "--group-order", "value": "group_order_list" }, { "flag": "--design", "when": ["design"] }] }
         ] },
-        { "title": "wait for the jobs, then write the report", "lines": [
+        { "title": "wait for the jobs, then write the report", "when": ["!dry_run"], "lines": [
           { "words": ["lab-rnaseq", "status", "--watch"] },
           { "words": ["lab-rnaseq", "report"] }
         ] },
-        { "title": "if something stops (leave these commented until needed)", "lines": [
+        { "title": "if something stops (leave these commented until needed)", "when": ["!dry_run"], "lines": [
           { "comment": "lab-rnaseq next     # what to run next, and why" },
           { "comment": "lab-rnaseq resume   # resubmit only the jobs that did not finish" }
         ] }
@@ -159,16 +189,20 @@
           { "words": ["lab-rnaseq", "config", "set", "analysis.go_ontologies", { "value": "go_list" }], "when": ["go_changed"] },
           { "words": ["lab-rnaseq", "config", "set", "genesets.collections", { "value": "collections_list" }], "when": ["collections_changed"] },
           { "words": ["lab-rnaseq", "config", "set", "analysis.fgsea_sets", { "value": "fgsea_list" }], "when": ["fgsea_changed"] },
-          { "words": ["lab-rnaseq", "config", "set", "figures.style", { "value": "style" }], "when": ["style"] }
+          { "words": ["lab-rnaseq", "config", "set", "figures.style", { "value": "style" }], "when": ["style"] },
+          { "words": ["lab-rnaseq", "config", "set", "analysis.padj_threshold", { "value": "padj_num" }], "when": ["padj_changed"] },
+          { "words": ["lab-rnaseq", "config", "set", "analysis.log2fc_threshold", { "value": "log2fc_num" }], "when": ["log2fc_changed"] },
+          { "words": ["lab-rnaseq", "config", "set", "genesets.gmt_files", { "value": "gmt_list" }], "when": ["gmt_list"] },
+          { "words": ["lab-rnaseq", "config", "set", "figures.formats", { "value": "formats_list" }], "when": ["formats_changed"] }
         ] },
-        { "title": "submit the expression analysis", "lines": [
+        { "title": "submit the expression analysis", "when": ["!dry_run"], "lines": [
           { "words": ["lab-rnaseq", "run", { "flag": "--project-dir", "text": "analysis" }, { "flag": "--count-matrix", "value": "matrix" }, { "flag": "--metadata", "value": "metadata" }, { "flag": "--organism", "value": "organism" }] }
         ] },
-        { "title": "wait for the jobs, then write the report", "lines": [
+        { "title": "wait for the jobs, then write the report", "when": ["!dry_run"], "lines": [
           { "words": ["lab-rnaseq", "status", "--watch"] },
           { "words": ["lab-rnaseq", "report"] }
         ] },
-        { "title": "if something stops (leave these commented until needed)", "lines": [
+        { "title": "if something stops (leave these commented until needed)", "when": ["!dry_run"], "lines": [
           { "comment": "lab-rnaseq next     # what to run next, and why" },
           { "comment": "lab-rnaseq resume   # resubmit only the jobs that did not finish" }
         ] }
