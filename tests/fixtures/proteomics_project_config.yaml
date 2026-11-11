@@ -1,0 +1,42 @@
+# project_config.yaml — proteomics analysis
+#
+# Aligned with the NGS pipeline config format.
+# DEP2-based: limma differential abundance on MaxQuant/Proteome Discoverer output.
+
+project:
+  name: my_proteomics_project
+
+references:
+  organism: human
+
+# ── Input data ───────────────────────────────────────────────────────────────
+# protein_data: MaxQuant proteinGroups.txt or Proteome Discoverer export
+# experimental_design: CSV with columns: label, condition, replicate
+input:
+  protein_data: /path/to/LabelFree_Master_raw.txt
+  experimental_design: /path/to/experimental_design.csv
+
+# ── Analysis thresholds ──────────────────────────────────────────────────────
+analysis:
+  padj_threshold: 0.1
+  log2fc_threshold: 0.6
+  filter_threshold: 0
+  fraction_filtered: 0.75
+  fdr_correction: "Strimmer's qvalue(t)"
+  threshold_method: intersect
+  n_clusters: 6
+  label_number: 20
+
+# ── Imputation ───────────────────────────────────────────────────────────────
+imputation:
+  method: GSimp                  # or: knn, bpca_MinProb, RF, etc.
+
+# ── Optional: proteins of interest ───────────────────────────────────────────
+# proteins_to_test: /path/to/proteins_to_test.txt   # one protein symbol per line
+
+# ── HPC settings ─────────────────────────────────────────────────────────────
+slurm:
+  # partition: <name>   # the site config (configs/sites/<site>.yaml) sets it; set it here only to differ
+
+runtime:
+  conda_env: lab_proteomics

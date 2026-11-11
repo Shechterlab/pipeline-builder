@@ -1,0 +1,179 @@
+{
+  "pipeline": "lab-proteomics",
+  "title": "Proteomics",
+  "intro": "Describe your samples and comparisons; the page writes the lab-proteomics commands, in order, for you to copy into a terminal on the cluster. Nothing you type leaves your browser.",
+  "script": {
+    "name": "Shechter Lab proteomics command builder",
+    "file": "proteomics-commands.sh",
+    "waits": "status after analyze"
+  },
+  "samples": {
+    "pipeline": "proteomics",
+    "showWhen": [[]],
+    "intro": "The label of each sample is the name of its intensity column in the protein table, and experimental_design.csv (label, condition, replicate) maps each label to its group. Paste the table's header line or the intensity column names in section 2 to fill the labels, drop an existing experimental_design.csv, or type them.",
+    "listing": { "field": "columns", "kind": "columns", "note": "The column names pasted in section 2 fill this table (one row per intensity column); edit any cell." }
+  },
+  "placeholders": {
+    "project": "/path/to/project",
+    "protein_data": "/path/to/proteinGroups.txt",
+    "columns": "LFQ intensity Ctrl_1\nLFQ intensity Ctrl_2\nLFQ intensity Ctrl_3\nLFQ intensity Treat_1\nLFQ intensity Treat_2\nLFQ intensity Treat_3"
+  },
+  "flags": {
+    "imp_changed": ["imputation!=GSimp"],
+    "sig_p": ["significance=pvalue"],
+    "sig_changed": ["significance!=padj"],
+    "fdr_changed": ["fdr!=Strimmer's qvalue(t)"]
+  },
+  "inputs": [],
+  "sections": [
+    {
+      "id": "install",
+      "title": "1. One-time install",
+      "fields": [
+        { "id": "install", "type": "checkbox", "label": "I have not installed the pipelines yet", "default": false }
+      ]
+    },
+    {
+      "id": "data",
+      "title": "2. Project and protein table",
+      "fields": [
+        { "id": "project", "type": "text", "trimSlash": true, "label": "Project folder", "hint": "init creates it. Use an absolute path: the config's file paths are read by the cluster jobs." },
+        { "id": "proj_name", "type": "text", "label": "Project name (optional)", "hint": "init --name; empty uses the folder's name." },
+        { "id": "protein_data", "type": "text", "wide": true, "label": "Protein table", "hint": "Absolute path to the MaxQuant or Proteome Discoverer export (input.protein_data). lab-proteomics reads the columns Accession and Description (or Symbol) and every column whose name contains an underscore as an intensity column: keep one intensity family (for example LFQ) in the table." },
+        { "id": "columns", "type": "textarea", "lineMax": 40000, "compact": "columns", "rows": 5, "label": "Intensity column names", "hint": "Paste the table's header line (tab-separated) or the intensity column names, one per line. The LFQ intensity / Intensity / iBAQ columns become the labels; other columns are ignored.", "wide": true }
+      ]
+    },
+    {
+      "id": "samples",
+      "title": "3. Samples & comparisons",
+      "component": "samples",
+      "fields": []
+    },
+    {
+      "id": "analysis",
+      "title": "4. Analysis settings",
+      "fields": [
+        { "id": "imputation", "type": "select", "label": "Imputation method", "default": "GSimp", "options": ["GSimp", "MinProb", "knn", "bpca", "RF", "knn_GSimp", "bpca_MinProb"],
+          "hint": "GSimp, MinProb: missing-not-at-random (low abundance). knn, bpca, RF: missing at random. knn_GSimp and bpca_MinProb mix the two (MAR_MNAR)." },
+        { "id": "significance", "type": "select", "label": "Significance column", "default": "padj", "options": ["padj", "pvalue"], "optionLabels": { "padj": "padj (FDR-corrected)", "pvalue": "pvalue (raw, exploratory)" },
+          "hint": "With pvalue the calls use the raw p-value cutoff; both columns are always written to the tables." },
+        { "id": "padj", "type": "text", "numeric": true, "min": 0, "max": 1, "label": "Adjusted p threshold", "hint": "Pipeline default 0.1; written only when changed.", "default": "0.1", "when": ["!sig_p"] },
+        { "id": "pvalue", "type": "text", "numeric": true, "min": 0, "max": 1, "label": "p-value threshold", "hint": "Pipeline default 0.05; written only when changed.", "default": "0.05", "when": ["sig_p"] },
+        { "id": "log2fc", "type": "text", "numeric": true, "min": 0, "label": "log2 fold-change threshold", "hint": "Pipeline default 0.6; written only when changed.", "default": "0.6" }
+      ]
+    },
+    {
+      "id": "advanced",
+      "title": "Advanced (optional)",
+      "collapsible": true,
+      "summary": "FDR method, Slurm account and partition, run name, a dry run only. Empty or unchanged fields change nothing.",
+      "fields": [
+        { "id": "fdr", "type": "select", "label": "FDR correction (analysis.fdr_correction)", "default": "Strimmer's qvalue(t)", "options": ["Strimmer's qvalue(t)", "Strimmer's qvalue(p)", "BH", "Storey's qvalue"] },
+        { "id": "account", "type": "text", "label": "Slurm account (optional)", "hint": "Written to project.slurm_account." },
+        { "id": "partition", "type": "text", "label": "Slurm partition (optional)", "hint": "Written to slurm.partition." },
+        { "id": "run_name", "type": "text", "label": "Run name", "hint": "Names the folder under results/; empty names it after the comparisons." },
+        { "id": "dry_run", "type": "checkbox", "label": "Dry run only: write the job scripts, submit nothing", "default": false }
+      ]
+    }
+  ],
+  "config": {
+    "name": { "key": "project.name" },
+    "protein_data": { "key": "input.protein_data" },
+    "design_path": { "key": "input.experimental_design" },
+    "imputation": { "key": "imputation.method" },
+    "significance": { "key": "analysis.significance_column" },
+    "padj": { "key": "analysis.padj_threshold" },
+    "pvalue": { "key": "analysis.pvalue_threshold" },
+    "log2fc": { "key": "analysis.log2fc_threshold" },
+    "fdr": { "key": "analysis.fdr_correction" },
+    "account": { "key": "project.slurm_account" },
+    "partition": { "key": "slurm.partition" }
+  },
+  "session": [
+    { "comment": "Every session: activate the lab environment" },
+    { "words": ["conda", "activate", "lab_pipelines"] }
+  ],
+  "installLines": [
+    { "words": ["git", "clone", "https://github.com/Shechterlab/lab_pipelines.git", "&&", "cd", "lab_pipelines", "&&", "bash", "setup.sh", "--only", "proteomics"] }
+  ],
+  "steps": [
+    {
+      "id": "proteomics",
+      "blocks": [
+        { "title": "create the project", "lines": [
+          { "words": ["lab-proteomics", "init", { "flag": "--project-dir", "value": "project" }, { "flag": "--name", "value": "proj_name", "when": ["proj_name"] }] },
+          { "comment": "init writes inputs/project_config.yaml, a header-only experimental_design.csv and a header-only contrasts.csv." }
+        ] },
+        { "title": "write the experimental design (label, condition, replicate)", "lines": [
+          { "notes": "meta_notes" },
+          { "comment": "Paste the protein table's header line or its intensity column names in section 2, or add rows in section 3: this step then writes inputs/experimental_design.csv for you.", "when": ["!meta_has"] },
+          { "comment": "label must match the intensity column names of the protein table exactly; condition is the group.", "when": ["meta_has"] },
+          { "heredoc": { "target": [{ "value": "project", "suffix": "/inputs/experimental_design.csv" }], "body": "meta_lines" }, "when": ["meta_has"] }
+        ] },
+        { "title": "write the comparisons", "lines": [
+          { "notes": "con_notes" },
+          { "comment": "Add comparisons in section 3: this step then writes inputs/contrasts.csv. Until then it is header-only and analyze stops with 'No valid contrasts found'.", "when": ["!con_has"] },
+          { "heredoc": { "target": [{ "value": "project", "suffix": "/inputs/contrasts.csv" }], "body": "con_lines" }, "when": ["con_has"] }
+        ] },
+        { "title": "point the config at your data and settings", "lines": [
+          { "comment": "lab-proteomics has no `config set`: this edits inputs/project_config.yaml in place (comments kept; a missing key is added to its section)." },
+          { "comment": "It also sets project.name (the project name above, else the folder's name): init leaves the example's name in the config." },
+          { "heredoc": { "words": ["python3", "-", { "value": "project", "suffix": "/inputs/project_config.yaml" },
+              { "prefix": "project.name=", "value": "proj_name", "when": ["proj_name"] },
+              { "text": "project.name=@folder", "when": ["!proj_name"] },
+              { "prefix": "input.protein_data=", "value": "protein_data" },
+              { "prefix": "input.experimental_design=", "value": "project", "suffix": "/inputs/experimental_design.csv" },
+              { "prefix": "imputation.method=", "value": "imputation", "when": ["imp_changed"] },
+              { "prefix": "analysis.significance_column=", "value": "significance", "when": ["sig_changed"] },
+              { "prefix": "analysis.padj_threshold=", "value": "padj_num", "when": ["padj_changed", "!sig_p"] },
+              { "prefix": "analysis.pvalue_threshold=", "value": "pvalue_num", "when": ["pvalue_changed", "sig_p"] },
+              { "prefix": "analysis.log2fc_threshold=", "value": "log2fc_num", "when": ["log2fc_changed"] },
+              { "prefix": "analysis.fdr_correction=", "value": "fdr", "when": ["fdr_changed"] },
+              { "prefix": "project.slurm_account=", "value": "account", "when": ["account"] },
+              { "prefix": "slurm.partition=", "value": "partition", "when": ["partition"] }],
+            "delimiter": "PY",
+            "bodyText": [
+              "import os, re, sys",
+              "path = sys.argv[1]",
+              "lines = open(path, encoding='utf-8').read().split('\\n')",
+              "for arg in sys.argv[2:]:",
+              "    dotted, value = arg.split('=', 1)",
+              "    section, key = dotted.split('.', 1)",
+              "    if value == '@folder':",
+              "        value = os.path.basename(os.path.dirname(os.path.dirname(os.path.abspath(path))))",
+              "    if value.startswith('~'):",
+              "        value = os.path.expanduser(value)",
+              "    shown = value if re.fullmatch(r'[A-Za-z0-9_.-]+', value) else \"'\" + value.replace(\"'\", \"''\") + \"'\"",
+              "    start = next((i for i, l in enumerate(lines) if re.match(section + r':\\s*(#.*)?$', l)), None)",
+              "    if start is None:",
+              "        lines += ['', section + ':', '  ' + key + ': ' + shown]",
+              "        continue",
+              "    end = next((j for j in range(start + 1, len(lines)) if lines[j] and not lines[j].startswith((' ', '\\t', '#'))), len(lines))",
+              "    for j in range(start + 1, end):",
+              "        m = re.match(r'(\\s+)' + re.escape(key) + r':[^#]*(#.*)?$', lines[j])",
+              "        if m:",
+              "            lines[j] = m.group(1) + key + ': ' + shown + ('   ' + m.group(2) if m.group(2) else '')",
+              "            break",
+              "    else:",
+              "        lines.insert(start + 1, '  ' + key + ': ' + shown)",
+              "open(path, 'w', encoding='utf-8').write('\\n'.join(lines).rstrip('\\n') + '\\n')"
+            ] } }
+        ] },
+        { "title": "check the project", "lines": [
+          { "words": ["lab-proteomics", "check", { "flag": "--project-dir", "value": "project" }, { "flag": "--config", "value": "project", "suffix": "/inputs/project_config.yaml" }] },
+          { "comment": "check may warn that the experimental design has no sample column: it looks for sample, while proteomics uses label. The warning is harmless." }
+        ] },
+        { "title": "run the analysis (dry run first, then submit)", "lines": [
+          { "words": ["lab-proteomics", "analyze", { "flag": "--project-dir", "value": "project" }, { "flag": "--config", "value": "project", "suffix": "/inputs/project_config.yaml" }, { "flag": "--contrasts", "value": "project", "suffix": "/inputs/contrasts.csv" }, { "flag": "--run-name", "value": "run_name", "when": ["run_name"] }, "--dry-run"] },
+          { "words": ["lab-proteomics", "analyze", { "flag": "--project-dir", "value": "project" }, { "flag": "--config", "value": "project", "suffix": "/inputs/project_config.yaml" }, { "flag": "--contrasts", "value": "project", "suffix": "/inputs/contrasts.csv" }, { "flag": "--run-name", "value": "run_name", "when": ["run_name"] }], "when": ["!dry_run"] },
+          { "comment": "Dry run only: the job scripts are written under results/, nothing is submitted. Untick the dry run to get the submit, status and report lines.", "when": ["dry_run"] }
+        ] },
+        { "title": "wait for the jobs, then write the report", "when": ["!dry_run"], "lines": [
+          { "comment": "Repeat status until every contrast shows a result; report then reads the newest run (or the one named by --run-name)." },
+          { "words": ["lab-proteomics", "status", { "flag": "--project-dir", "value": "project" }] },
+          { "words": ["lab-proteomics", "report", { "flag": "--project-dir", "value": "project" }, { "flag": "--run-name", "value": "run_name", "when": ["run_name"] }] }
+        ] }
+      ]
+    }
+  ]
+}

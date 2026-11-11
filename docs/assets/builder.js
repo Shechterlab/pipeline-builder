@@ -9,9 +9,9 @@
   // ------------------------------------------------------------------ shell quoting
   function oneLine(v) { return String(v == null ? '' : v).replace(/[\r\n]+/g, ' ').trim(); }
   // pasted lists (a textarea): lines kept, blank lines and trailing spaces dropped, size capped
-  function multiLine(v) {
+  function multiLine(v, lineMax) {
     return String(v == null ? '' : v).replace(/\r\n?/g, '\n').split('\n').slice(0, 5000)
-      .map(function (l) { return l.replace(/\s+$/, '').slice(0, 400); })
+      .map(function (l) { return l.replace(/\s+$/, '').slice(0, lineMax || 400); })
       .filter(function (l) { return l.trim(); }).join('\n').slice(0, 200000);
   }
 
@@ -40,6 +40,7 @@
       else if (f.type === 'checkgroup') st[f.id] = (f.default || []).slice();
       else st[f.id] = f.default != null ? f.default : '';
     });
+    if (spec.samples) { st.samples = []; st.comparisons = []; }
     return st;
   }
 
@@ -48,7 +49,7 @@
   function normalize(spec, raw) {
     var st = defaultState(spec);
     raw = raw || {};
-    if (spec.inputs.some(function (i) { return i.id === raw.input; })) st.input = raw.input;
+    if ((spec.inputs || []).some(function (i) { return i.id === raw.input; })) st.input = raw.input;
     allFields(spec).forEach(function (f) {
       var v = raw[f.id];
       if (v === undefined || f.disabled) return;
@@ -58,12 +59,17 @@
         st[f.id] = f.options.filter(function (o) { return list.indexOf(o) >= 0; });
       } else if (f.type === 'select') {
         if (f.options.indexOf(String(v)) >= 0) st[f.id] = String(v);
-      } else st[f.id] = f.type === 'textarea' ? multiLine(v) : oneLine(v);
+      } else st[f.id] = f.type === 'textarea' ? multiLine(v, f.lineMax) : oneLine(v);
     });
     if (st.input === 'matrix') st.isoforms = false;
     Object.keys(spec.moduleRequires || {}).forEach(function (m) {
       if (!st[spec.moduleRequires[m]]) st[m] = false;
     });
+    if (spec.samples) {                                   // the table and the comparisons (a pasted listing is merged into the table)
+      st.samples = cleanRows(raw.samples); st.comparisons = cleanComps(raw.comparisons);
+      var listed = listingRows(spec, st);
+      if (listed) st.samples = mergeListing(st.samples, listed);
+    }
     return st;
   }
 
@@ -106,12 +112,6 @@
     return cleanName(n) || cleanName(base) || 'sample';
   }
 
-  // replicate number from <group>_REP<n>, else a trailing _<n> / -<n>; '' when the name holds none
-  function replicateOf(sample) {
-    var m = /^(.*?)[._-]REP(\d+)$/i.exec(sample) || /^(.+?)[._-](\d{1,2})$/.exec(sample);
-    return m ? String(parseInt(m[2], 10)) : '';
-  }
-
   // pair R1/R2 (same name apart from the read token); a file without a mate is single-end;
   // singleEnd: every file is its own read 1. Returns rows [{sample, fastq1, fastq2}] sorted by sample
   function pairFastqs(files, singleEnd) {
@@ -139,27 +139,33 @@
     return rows;
   }
 
+  // replicate number from the name (see splitSample); '' when it holds none
+  function replicateOf(sample) { return splitSample(sample).replicate; }
+
   function csvField(v) { v = String(v); return /[",]|^\s|\s$/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
 
   var CONTROL_RE = /(^|[._-])(input|igg)([._-]|$)/i;
 
   // the samplesheet of an assay (header and columns as the lab CLIs' templates), plus notes for the output
-  function fastqSheet(assay, text, folder, singleEnd, strand) {
+  function fastqSheet(assay, text, folder, singleEnd, strand, overrides) {
     var parsed = parseFastqNames(text, folder), rows = pairFastqs(parsed.files, singleEnd), notes = [], lines;
     var header = { atacseq: 'sample,fastq_1,fastq_2,replicate', chipseq: 'sample,fastq_1,fastq_2,replicate,antibody,control',
                    proseq: 'sample,fastq_1,fastq_2,strandedness' }[assay];
     if (!header || !rows.length) return { lines: [], notes: skippedNote(parsed.skipped), rows: rows };
     var edits = 0, noRep = [];
+    overrides = overrides || {};                       // the samples table: its edits (name, replicate, antibody, control, strandedness) win
     lines = [header].concat(rows.map(function (r) {
-      var rep = replicateOf(r.sample), cols = [r.sample, r.fastq1, r.fastq2];
-      if (assay === 'proseq') cols.push(strand || 'forward');
+      var ov = overrides[r.sample] || {}, name = ov.sample || r.sample;
+      var rep = ov.replicate || replicateOf(r.sample), cols = [name, r.fastq1, r.fastq2];
+      if (assay === 'proseq') cols.push(ov.strandedness || strand || 'forward');
       else {
         cols.push(rep);
-        if (!rep && noRep.indexOf(r.sample) < 0) noRep.push(r.sample);
+        if (!rep && noRep.indexOf(name) < 0) noRep.push(name);
         if (assay === 'chipseq') {
-          var c = CONTROL_RE.exec(r.sample);
-          if (c) cols.push(c[2].toLowerCase() === 'igg' ? 'IgG' : 'Input', '');
-          else { cols.push('EDIT_ANTIBODY', 'EDIT_CONTROL'); edits++; }
+          var c = CONTROL_RE.exec(r.sample), ab = ov.antibody || (c ? (c[2].toLowerCase() === 'igg' ? 'IgG' : 'Input') : ''), ctl = ov.control || '';
+          if (!ab) { ab = 'EDIT_ANTIBODY'; edits++; }
+          if (!ctl && !c && !/^(input|igg)$/i.test(ab)) { ctl = 'EDIT_CONTROL'; edits++; }
+          cols.push(ab, ctl);
         }
       }
       return cols.map(csvField).join(',');
@@ -195,6 +201,378 @@
     return { ids: ids, notes: bad.length ? ['Left out (not a GEO / SRA / ENA / DDBJ accession): ' + bad.slice(0, 5).join(', ') + (bad.length > 5 ? ' (+' + (bad.length - 5) + ' more)' : '')] : [] };
   }
 
+  // ------------------------------------------------------------------ samples & comparisons (the shared block)
+  // The table is state.samples: rows {sample, group, replicate, antibody, control, strandedness, key}; the comparisons are
+  // state.comparisons: {target, reference, id} (id '' = <target>_vs_<reference>). Everything here is DOM-free, so tests run it.
+  var MAX_ROWS = 500, MAX_COMPS = 200, CELL_MAX = 120, CSV_MAX_BYTES = 1000000, HASH_LIMIT = 6000;
+  var ROW_KEYS = ['sample', 'group', 'replicate', 'antibody', 'control', 'strandedness', 'key'];
+
+  // What each pipeline reads next to its samplesheet / count table: lab_ngs_core/templates.py CSV_TEMPLATES
+  // (`<pipeline>_metadata`, `proteomics_experimental_design`, `<pipeline>_contrasts`); tests/check_samples.mjs checks these
+  // against a lab_pipelines checkout when one is next to this folder. `extras` are the table's columns after replicate.
+  var TABLES = {
+    rnaseq:     { meta: ['sample', 'condition', 'replicate'], extras: [], file: 'metadata.csv' },
+    atacseq:    { meta: ['sample', 'condition', 'replicate'], extras: [], file: 'metadata.csv' },
+    chipseq:    { meta: ['sample', 'condition', 'replicate', 'antibody'], extras: ['antibody', 'control'], file: 'metadata.csv' },
+    proseq:     { meta: ['sample', 'condition', 'replicate'], extras: ['strandedness'], file: 'metadata.csv' },
+    proteomics: { meta: ['label', 'condition', 'replicate'], extras: [], file: 'experimental_design.csv' }
+  };
+  var CONTRAST_HEADER = ['id', 'variable', 'reference', 'target'];     // every pipeline's <pipeline>_contrasts template
+
+  function cell(v) { return oneLine(v).slice(0, CELL_MAX); }
+
+  // group and replicate from a sample name: <group>_REP<n>, <group>_rep<n>, <group>_R<n>, a trailing _<n> / -<n> / .<n>
+  function splitSample(name) {
+    var s = oneLine(name), m;
+    if ((m = /^(.+?)[._-]rep(?:licate)?[._-]?(\d+)$/i.exec(s)) || (m = /^(.+?)[._-]R(\d+)$/i.exec(s)) || (m = /^(.+?)[._-](\d{1,2})$/.exec(s))) {
+      return { group: m[1], replicate: String(parseInt(m[2], 10)) };
+    }
+    return { group: s, replicate: '' };
+  }
+  // proteomics labels are intensity column names: "LFQ intensity WT_1", "Ctrl_1_LFQ"
+  var PG_PREFIX = /^(?:MaxLFQ intensity|LFQ intensity|Intensity|iBAQ|Abundances?[^:]*:)\s+/i, PG_SUFFIX = /[._-](?:LFQ|MaxLFQ|Intensity|iBAQ)$/i;
+  function labelStem(label) { return oneLine(label).replace(PG_PREFIX, '').replace(PG_SUFFIX, ''); }
+  function derivedCells(pipe, name) { return splitSample(pipe === 'proteomics' ? labelStem(name) : name); }
+
+  function blankRow() { return { sample: '', group: '', replicate: '', antibody: '', control: '', strandedness: '', key: '' }; }
+  function cleanRows(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.slice(0, MAX_ROWS).filter(function (r) { return r && typeof r === 'object'; }).map(function (r) {
+      var out = blankRow();
+      ROW_KEYS.forEach(function (k) { out[k] = cell(r[k]); });
+      if (out.strandedness && ['auto', 'forward', 'reverse', 'unstranded'].indexOf(out.strandedness) < 0) out.strandedness = '';
+      return out;
+    });
+  }
+  function cleanComps(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.slice(0, MAX_COMPS).filter(function (c) { return c && typeof c === 'object' && cell(c.target) && cell(c.reference); })
+      .map(function (c) { return { target: cell(c.target), reference: cell(c.reference), id: cleanId(c.id) }; });
+  }
+  function cleanId(v) { return oneLine(v).replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 80); }
+  function safeLabel(v) { return oneLine(v).replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, ''); }
+
+  function groupsOf(rows) {
+    var seen = {}, out = [];
+    (rows || []).forEach(function (r) { if (r.group && !seen[r.group]) { seen[r.group] = true; out.push(r.group); } });
+    return out;
+  }
+
+  // ---- CSV in (a dropped or chosen file)
+  function parseCsv(text) {
+    text = String(text == null ? '' : text).replace(/^﻿/, '');
+    var first = text.split(/\r\n|\r|\n/, 1)[0], delim = ',', best = -1;
+    [',', '\t', ';'].forEach(function (d) { var n = first.split(d).length - 1; if (n > best) { best = n; delim = d; } });
+    var rows = [], row = [], cur = '', quoted = false, i = 0, c;
+    function endCell() { row.push(cur); cur = ''; }
+    function endRow() {
+      endCell();
+      if (row.some(function (x) { return x.trim() !== ''; }) && !/^\s*#/.test(row[0])) rows.push(row);
+      row = [];
+    }
+    while (i < text.length) {
+      c = text[i];
+      if (quoted) {
+        if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else quoted = false; } else cur += c;
+      } else if (c === '"' && cur === '') quoted = true;
+      else if (c === delim) endCell();
+      else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; endRow(); }
+      else cur += c;
+      i++;
+    }
+    if (cur !== '' || row.length) endRow();
+    return rows;
+  }
+
+  var COLUMN_NAMES = {                     // header (lower case, spaces and dashes as _) -> what it is
+    sample: ['sample', 'sample_id', 'sampleid', 'sample_name', 'samplename', 'name', 'label'],
+    group: ['condition', 'group', 'treatment', 'sample_group', 'class'],
+    replicate: ['replicate', 'rep', 'replicate_id', 'biological_replicate', 'bio_rep', 'biorep'],
+    fastq_1: ['fastq_1', 'fastq1', 'fastq_r1', 'read1', 'r1'],
+    fastq_2: ['fastq_2', 'fastq2', 'fastq_r2', 'read2', 'r2'],
+    antibody: ['antibody', 'ab'],
+    control: ['control', 'input_control', 'control_sample'],
+    strandedness: ['strandedness', 'strand']
+  };
+  var COLUMN_ORDER = ['sample', 'group', 'replicate', 'fastq_1', 'fastq_2', 'antibody', 'control', 'strandedness'];
+
+  // refuse what is not a small CSV before reading it: '' when fine, else the message for the page
+  function checkCsvFile(name, size) {
+    if (!/\.(csv|tsv)$/i.test(String(name || ''))) return '"' + String(name || 'This file').slice(0, 60) + '" is not a CSV file. Choose a .csv (or .tsv) with a header row.';
+    if (!size) return 'The file is empty.';
+    if (size > CSV_MAX_BYTES) return 'The file is too large (' + (size / 1e6).toFixed(1) + ' MB; the limit is ' + (CSV_MAX_BYTES / 1e6) + ' MB). A samplesheet or metadata table is a few KB.';
+    return '';
+  }
+
+  // an nf-core samplesheet.csv, a metadata.csv or a proteomics experimental_design.csv -> table rows, with what was recognised.
+  // {ok:false, error} for junk. pipe only matters for proteomics label names.
+  function samplesFromCsv(text, pipe) {
+    text = String(text == null ? '' : text);
+    if (text.indexOf('\u0000') >= 0) return { ok: false, error: 'This does not look like a text CSV file (binary content).' };
+    var table = parseCsv(text);
+    if (table.length < 2) return { ok: false, error: 'No sample rows found: a CSV needs a header row and at least one sample.' };
+    var header = table[0].map(function (h) { return h.trim().toLowerCase().replace(/[\s-]+/g, '_'); });
+    if (header.length > 80) return { ok: false, error: 'Too many columns (' + header.length + ') for a sample table.' };
+    var col = {}, as = {}, recognised = [];
+    COLUMN_ORDER.forEach(function (field) {
+      var names = COLUMN_NAMES[field], idx = -1, best = 99;
+      header.forEach(function (h, i) {
+        var rank = names.indexOf(h);
+        if (rank >= 0 && rank < best && as[i] === undefined) { best = rank; idx = i; }
+      });
+      if (idx >= 0) { col[field] = idx; as[idx] = field; recognised.push({ column: table[0][idx].trim(), as: field }); }
+    });
+    if (col.sample === undefined) {
+      return { ok: false, error: 'No sample column found. Looked for: ' + COLUMN_NAMES.sample.join(', ') + '. Columns in the file: ' + table[0].slice(0, 8).map(function (h) { return h.trim(); }).join(', ') + (header.length > 8 ? ', ...' : '') + '.' };
+    }
+    var ignored = table[0].map(function (h, i) { return as[i] === undefined ? h.trim() : null; }).filter(Boolean);
+    var byName = {}, rows = [], derivedGroup = 0, derivedRep = 0, dropped = 0, notes = [];
+    table.slice(1).forEach(function (r) {
+      var get = function (f) { return col[f] === undefined ? '' : cell(r[col[f]] == null ? '' : r[col[f]]); };
+      var sample = get('sample');
+      if (!sample) return;
+      var row = byName[sample];
+      if (!row) {
+        if (rows.length >= MAX_ROWS) { dropped++; return; }
+        row = blankRow(); row.sample = sample; byName[sample] = row; rows.push(row);
+      }                                                      // nf-core repeats a sample per lane or run: one row, cells merged
+      ['group', 'replicate', 'antibody', 'control', 'strandedness'].forEach(function (f) { if (!row[f]) row[f] = get(f); });
+    });
+    if (!rows.length) return { ok: false, error: 'The sample column is empty.' };
+    rows.forEach(function (r) {
+      var d = derivedCells(pipe, r.sample);
+      if (!r.group) { r.group = d.group; derivedGroup++; }
+      if (!r.replicate && d.replicate) { r.replicate = d.replicate; derivedRep++; }
+      if (r.strandedness && ['auto', 'forward', 'reverse', 'unstranded'].indexOf(r.strandedness) < 0) r.strandedness = '';
+      ['antibody', 'control', 'strandedness'].forEach(function (f) { if (TABLES[pipe] && TABLES[pipe].extras.indexOf(f) < 0) r[f] = ''; });   // not a column of this assay's table
+    });
+    var kind = col.fastq_1 !== undefined ? 'nf-core samplesheet' : (as[col.sample] === 'sample' && header[col.sample] === 'label' ? 'experimental design (label column)'
+      : (col.group !== undefined ? 'metadata table' : 'sample list'));
+    notes.push(rows.length + ' sample(s) read from a ' + kind + '.');
+    if (col.group === undefined) notes.push('No condition / group column: groups taken from the sample names (<group>_REP<n>, trailing _<n>); edit them in the table.');
+    else if (derivedGroup) notes.push('Group taken from the name for ' + derivedGroup + ' sample(s) with an empty group cell.');
+    if (derivedRep) notes.push('Replicate taken from the name for ' + derivedRep + ' sample(s).');
+    if (col.fastq_1 !== undefined) notes.push('The fastq_1 / fastq_2 paths in the file are not used here: the table takes names, groups and replicates only.');
+    if (dropped) notes.push('Only the first ' + MAX_ROWS + ' samples were kept (' + dropped + ' more in the file).');
+    return { ok: true, kind: kind, rows: rows, recognised: recognised, ignored: ignored, notes: notes };
+  }
+
+  // ---- a listing in: pasted FASTQ names (map page) or pasted intensity column names (proteomics)
+  function rowsFromFastqListing(assay, text, folder, singleEnd) {
+    var parsed = parseFastqNames(text, folder), seen = {}, rows = [];
+    pairFastqs(parsed.files, singleEnd).forEach(function (r) {
+      if (seen[r.sample]) return;
+      seen[r.sample] = true;
+      var row = blankRow(), d = splitSample(r.sample), c = CONTROL_RE.exec(r.sample);
+      row.sample = row.key = r.sample; row.group = d.group; row.replicate = d.replicate;
+      if (assay === 'chipseq' && c) row.antibody = c[2].toLowerCase() === 'igg' ? 'IgG' : 'Input';
+      rows.push(row);
+    });
+    return rows.slice(0, MAX_ROWS);
+  }
+
+  var ANNOTATION_COLUMN = /^(accession|description|symbol|gene[ _]?names?|protein[ _]?names?|majority protein ids|protein ids|fasta headers|peptides|razor.*|unique.*|sequence coverage.*|mol\. weight.*|q-value|score|only identified by site|reverse|potential contaminant|id|number of proteins|msms count|ms\/ms count|peptide counts.*|intensity|lfq intensity|ibaq)$/i;
+  // the header line of a proteinGroups.txt (tab separated), a list of column names (one per line, or comma separated), or
+  // names with the usual prefix on one line. Intensity-looking columns when there are any, else every non-annotation name.
+  function parseColumnNames(text) {
+    text = String(text == null ? '' : text).replace(/\r\n?/g, '\n').trim();
+    var parts;
+    if (text.indexOf('\t') >= 0) parts = text.split(/[\t\n]+/);
+    else if (text.indexOf('\n') >= 0) parts = text.split('\n');
+    else if (text.indexOf(',') >= 0) parts = text.split(',');
+    else parts = text.match(/(?:MaxLFQ intensity|LFQ intensity|Intensity|iBAQ)\s+\S+/gi) || text.split(/\s+/);   // one line: prefixed names, else words
+    parts = parts.map(function (p) { return p.trim().replace(/^["']+|["']+$/g, ''); }).filter(Boolean);
+    var seen = {}, names = [];
+    parts.forEach(function (p) { if (!seen[p]) { seen[p] = true; names.push(p); } });
+    var intens = names.filter(function (n) { return PG_PREFIX.test(n); });
+    var labels = (intens.length ? intens : names.filter(function (n) { return !ANNOTATION_COLUMN.test(n); })).slice(0, MAX_ROWS);
+    var notes = [];
+    if (intens.length && intens.length < names.length) notes.push(names.length + ' columns pasted; ' + intens.length + ' look like intensity columns (LFQ intensity, Intensity, iBAQ, ...) and became labels.');
+    var families = {};
+    intens.forEach(function (n) { families[n.match(PG_PREFIX)[0].replace(/\s+$/, '').toLowerCase()] = true; });
+    if (Object.keys(families).length > 1) notes.push('More than one intensity family was pasted (' + Object.keys(families).join(', ') + '). lab-proteomics reads every column whose name has an underscore: keep one family (for example LFQ intensity) in the protein table.');
+    return { labels: labels, notes: notes };
+  }
+  function rowsFromColumnNames(text) {
+    return parseColumnNames(text).labels.map(function (l) {
+      var row = blankRow(), d = splitSample(labelStem(l));
+      row.sample = row.key = l; row.group = d.group; row.replicate = d.replicate;
+      return row;
+    });
+  }
+
+  function listingRows(spec, st) {
+    var sb = spec.samples, l = sb && sb.listing, text = l && st[l.field];
+    if (!text) return null;
+    if (l.kind === 'fastq') {
+      if (st.input && st.input !== 'fastq') return null;
+      var assay = sb.pipeline === '$assay' ? st.assay : sb.pipeline;
+      return rowsFromFastqListing(assay, text, st.fastq_dir || '/path/to/fastqs', !!st.single_end);
+    }
+    if (l.kind === 'columns') return rowsFromColumnNames(text);
+    return null;
+  }
+
+  // the table after a listing changed: rows with a listing name keep the user's edits, new names are added, names that left
+  // the listing go; rows typed or read from a CSV (no key) stay, and adopt a listing name that equals theirs
+  function mergeListing(existing, fresh) {
+    var byKey = {}, used = {}, out = [];
+    existing.forEach(function (e) { var k = e.key || e.sample; if (k && !byKey[k]) byKey[k] = e; });
+    fresh.forEach(function (f) {
+      var e = byKey[f.key];
+      if (e && !used[f.key]) {
+        used[f.key] = true;
+        var m = Object.assign({}, e, { key: f.key });
+        ['group', 'replicate', 'antibody'].forEach(function (c) { if (!m[c]) m[c] = f[c]; });
+        if (!m.sample) m.sample = f.sample;
+        out.push(m);
+      } else out.push(f);
+    });
+    existing.forEach(function (e) {
+      var k = e.key || e.sample;
+      if (!e.key && !(k && used[k])) out.push(e);
+    });
+    return out.slice(0, MAX_ROWS);
+  }
+
+  // ---- table out: metadata.csv (experimental_design.csv for proteomics)
+  function metadataLines(pipe, rows) {
+    var t = TABLES[pipe], notes = [];
+    if (!t) return { lines: [], notes: notes, samples: 0 };
+    var seen = {}, out = [], dup = [], noGroup = [], noRep = [], noUnderscore = [];
+    (rows || []).forEach(function (r) {
+      if (!r.sample) return;
+      if (seen[r.sample]) { dup.push(r.sample); return; }
+      seen[r.sample] = true;
+      if (!r.group) noGroup.push(r.sample);
+      if (!r.replicate) noRep.push(r.sample);
+      if (pipe === 'proteomics' && !/_[^_]+$/.test(r.sample)) noUnderscore.push(r.sample);
+      var field = { sample: r.sample, label: r.sample, condition: r.group, replicate: r.replicate, antibody: r.antibody };
+      out.push(t.meta.map(function (c) { return csvField(field[c] || ''); }).join(','));
+    });
+    function few(l) { return l.slice(0, 4).join(', ') + (l.length > 4 ? ' (+' + (l.length - 4) + ' more)' : ''); }
+    if (dup.length) notes.push('Sample named twice, the first row is used: ' + few(dup));
+    if (noGroup.length) notes.push('No group for ' + few(noGroup) + ': fill the group column of the table.');
+    if (pipe === 'chipseq' && out.length && (rows || []).some(function (r) { return r.sample && !r.antibody; })) notes.push('ChIP / CUT&RUN / CUT&Tag: the antibody column of metadata.csv is empty for some samples; fill it in the table.');
+    if (noUnderscore.length) notes.push('lab-proteomics only reads intensity columns whose name has an underscore; these have none: ' + few(noUnderscore));
+    return { lines: out.length ? [t.meta.join(',')].concat(out) : [], notes: notes, samples: out.length, noRep: noRep };
+  }
+
+  // ---- comparisons
+  function comparisonId(target, reference) { return (safeLabel(target) || 'group') + '_vs_' + (safeLabel(reference) || 'group'); }
+
+  // [{id, target, reference, valid, auto}] ; ids made unique (_2, _3) among the valid ones; valid = both groups are in the table
+  function resolveComparisons(comps, groups) {
+    var used = {}, out = [];
+    (comps || []).forEach(function (c) {
+      var valid = groups.indexOf(c.target) >= 0 && groups.indexOf(c.reference) >= 0 && c.target !== c.reference;
+      var id = c.id || comparisonId(c.target, c.reference), base = id, n = 2;
+      if (valid) { while (used[id]) id = base + '_' + (n++); used[id] = true; }
+      out.push({ id: id, target: c.target, reference: c.reference, valid: valid, auto: !c.id });
+    });
+    return out;
+  }
+
+  function addComparison(comps, target, reference, groups) {
+    target = cell(target); reference = cell(reference);
+    if (!target || !reference) return { comps: comps, error: 'Choose a target and a reference group.', added: 0 };
+    if (target === reference) return { comps: comps, error: 'Target and reference are the same group.', added: 0 };
+    if (groups.indexOf(target) < 0 || groups.indexOf(reference) < 0) return { comps: comps, error: 'That group is not in the table.', added: 0 };
+    if (comps.some(function (c) { return c.target === target && c.reference === reference; })) return { comps: comps, error: target + ' vs ' + reference + ' is already in the list.', added: 0 };
+    if (comps.length >= MAX_COMPS) return { comps: comps, error: 'Too many comparisons (limit ' + MAX_COMPS + ').', added: 0 };
+    return { comps: comps.concat([{ target: target, reference: reference, id: '' }]), error: '', added: 1 };
+  }
+  // every other group against one reference (those already in the list are left as they are)
+  function allVsReference(comps, reference, groups) {
+    if (!reference || groups.indexOf(reference) < 0) return { comps: comps, error: 'Choose the reference group first.', added: 0 };
+    var cur = comps, added = 0;
+    groups.forEach(function (g) {
+      if (g === reference) return;
+      var r = addComparison(cur, g, reference, groups);
+      if (r.added) { cur = r.comps; added++; }
+    });
+    return { comps: cur, error: added ? '' : 'Every group is already compared with ' + reference + '.', added: added };
+  }
+  function removeComparison(comps, i) { return comps.filter(function (c, j) { return j !== i; }); }
+  // an edited id; empty (or the automatic one) goes back to automatic
+  function setComparisonId(comps, i, id) {
+    return comps.map(function (c, j) {
+      if (j !== i) return c;
+      id = cleanId(id);
+      return { target: c.target, reference: c.reference, id: id === comparisonId(c.target, c.reference) ? '' : id };
+    });
+  }
+  function defaultReference(groups) {
+    var m = groups.filter(function (g) { return /^(control|ctrl|ctl|wt|wild[_-]?type|untreated|vehicle|dmso|mock|none|baseline|naive|igg|input)$/i.test(g); })[0];
+    return m || groups[0] || '';
+  }
+
+  // drag and drop and the two selects share these: the Target / Reference slots
+  function fillSlot(slots, which, group, groups) {
+    var s = { target: slots.target || '', reference: slots.reference || '' };
+    if (which !== 'target' && which !== 'reference') return { slots: s, error: 'Unknown slot.' };
+    if (group && groups.indexOf(group) < 0) return { slots: s, error: 'That group is not in the table.' };
+    s[which] = group || '';
+    return { slots: s, error: '' };
+  }
+  function nextSlot(slots) { return slots.target ? (slots.reference ? '' : 'reference') : 'target'; }
+  // fill a slot (a drop, a tap on a chip or a select) and, when both are set, add the comparison and empty the slots
+  function dropOnSlot(comps, slots, which, group, groups) {
+    var f = fillSlot(slots, which, group, groups);
+    if (f.error) return { comps: comps, slots: f.slots, error: f.error, added: 0 };
+    if (!(f.slots.target && f.slots.reference)) return { comps: comps, slots: f.slots, error: '', added: 0 };
+    return submitSlots(comps, f.slots, groups);
+  }
+  function submitSlots(comps, slots, groups) {
+    var r = addComparison(comps, slots.target, slots.reference, groups);
+    return { comps: r.comps, slots: r.added ? { target: '', reference: '' } : { target: slots.target, reference: slots.reference }, error: r.error, added: r.added };
+  }
+
+  function contrastLines(items) {
+    var valid = items.filter(function (c) { return c.valid; });
+    if (!valid.length) return [];
+    return [CONTRAST_HEADER.join(',')].concat(valid.map(function (c) { return [c.id, 'condition', c.reference, c.target].map(csvField).join(','); }));
+  }
+
+  // ---- state in the page address (compact) and as a small JSON file
+  function esc(v) { return String(v).replace(/%/g, '%25').replace(/~/g, '%7E').replace(/!/g, '%21'); }
+  function unesc(v) { return v.replace(/%7E/gi, '~').replace(/%21/g, '!').replace(/%25/g, '%'); }
+  function encodeRows(rows) {
+    return (rows || []).filter(function (r) { return ROW_KEYS.some(function (k) { return r[k]; }); }).map(function (r) {
+      var cells = ROW_KEYS.map(function (k) { return k === 'key' && r.key === r.sample ? '' : esc(r[k]); });
+      while (cells.length > 1 && cells[cells.length - 1] === '') cells.pop();
+      return cells.join('~');
+    }).join('!');
+  }
+  function decodeRows(s) {
+    if (!s) return [];
+    return String(s).split('!').slice(0, MAX_ROWS).map(function (line) {
+      var parts = line.split('~'), r = blankRow();
+      ROW_KEYS.forEach(function (k, i) { r[k] = unesc(parts[i] || ''); });
+      return r;
+    });
+  }
+  function encodeComps(comps) { return (comps || []).map(function (c) { return [c.target, c.reference, c.id].map(esc).join('~').replace(/~+$/, ''); }).join('!'); }
+  function decodeComps(s) {
+    if (!s) return [];
+    return String(s).split('!').slice(0, MAX_COMPS).map(function (line) {
+      var p = line.split('~');
+      return { target: unesc(p[0] || ''), reference: unesc(p[1] || ''), id: unesc(p[2] || '') };
+    });
+  }
+  var STATE_FORMAT = 'lab-builder-samples/1';
+  function samplesToJson(rows, comps) {
+    return JSON.stringify({ format: STATE_FORMAT, samples: cleanRows(rows).map(function (r) { var o = {}; ROW_KEYS.forEach(function (k) { if (r[k] && !(k === 'key' && r.key === r.sample)) o[k] = r[k]; }); return o; }), comparisons: cleanComps(comps) }, null, 1) + '\n';
+  }
+  function samplesFromJson(text) {
+    if (String(text || '').length > CSV_MAX_BYTES) return { ok: false, error: 'The file is too large for a saved state.' };
+    var d;
+    try { d = JSON.parse(text); } catch (e) { return { ok: false, error: 'Not a saved state: this is not JSON.' }; }
+    if (!d || d.format !== STATE_FORMAT || !Array.isArray(d.samples)) return { ok: false, error: 'Not a saved state of this builder (format ' + STATE_FORMAT + ' expected).' };
+    var rows = cleanRows(d.samples);
+    return { ok: true, rows: rows, comps: cleanComps(d.comparisons) };
+  }
+
   function derive(spec, st) {
     var d = {};
     var modules = (spec.moduleOrder || []).filter(function (m) { return st[m]; });
@@ -221,13 +599,26 @@
         d[f.id + '_changed'] = ok && n !== Number(f.default);
       }
     });
+    var overrides = {};
+    (st.samples || []).forEach(function (r) { var k = r.key || r.sample; if (k && !overrides[k]) overrides[k] = r; });
     if ((spec.derived || []).indexOf('samplesheet') >= 0) {      // map page: the samplesheet written from the pasted names
-      var sheet = fastqSheet(st.assay, st.fastq_list, st.fastq_dir || '/path/to/fastqs', !!st.single_end, st.proseq_strand);
+      var sheet = fastqSheet(st.assay, st.fastq_list, st.fastq_dir || '/path/to/fastqs', !!st.single_end, st.proseq_strand, overrides);
       d.sheet_lines = sheet.lines; d.sheet_notes = sheet.notes; d.sheet_has = sheet.lines.length > 0;
     }
     if ((spec.derived || []).indexOf('accessions') >= 0) {       // map page: accessions.csv, one ID per line
       var acc = parseAccessions(st.accessions);
       d.acc_lines = acc.ids; d.acc_notes = acc.notes; d.acc_has = acc.ids.length > 0;
+    }
+    if (spec.samples) {                                          // the samples & comparisons block: its CSVs, notes and counts
+      var pipe = spec.samples.pipeline === '$assay' ? st.assay : spec.samples.pipeline;
+      var meta = metadataLines(pipe, st.samples), groups = groupsOf(st.samples);
+      var resolved = resolveComparisons(st.comparisons, groups), good = resolved.filter(function (c) { return c.valid; });
+      d.meta_lines = meta.lines; d.meta_has = meta.lines.length > 0; d.meta_notes = meta.notes;
+      d.con_lines = contrastLines(resolved); d.con_has = good.length > 0;
+      d.con_notes = resolved.filter(function (c) { return !c.valid; }).slice(0, 4).map(function (c) {
+        return 'Left out of contrasts.csv (a group is not in the table): ' + c.target + ' vs ' + c.reference; });
+      d.samples_n = meta.samples; d.comps_n = good.length; d.any_table = d.meta_has || d.con_has;
+      d.samples_visible = (spec.samples.showWhen || [[]]).some(function (alt) { return holds(alt, Object.assign({}, st, d)); });
     }
     // spec "flags": named conditions, so a step can say "not (dry run and FASTQ input)"
     var vals = Object.assign({}, st, d);
@@ -296,10 +687,12 @@
   }
 
   // cat > <target> <<'EOF' ... EOF : the quoted delimiter keeps the body literal; the delimiter is made unique among its lines
+  // h.words (a command, e.g. python3 - ...) instead of `cat > target`; h.bodyText is a fixed body, h.body the name of a derived list
   function heredocText(spec, h, r) {
-    var body = r.vals[h.body] || [], delim = h.delimiter || 'EOF';
+    var body = h.bodyText || r.vals[h.body] || [], delim = h.delimiter || 'EOF';
     while (body.indexOf(delim) >= 0) delim += '_X';
-    return ['cat > ' + lineText(spec, { words: h.target }, r) + " <<'" + delim + "'"].concat(body, [delim]).join('\n');
+    var head = h.words ? lineText(spec, { words: h.words }, r) : 'cat > ' + lineText(spec, { words: h.target }, r);
+    return [head + " <<'" + delim + "'"].concat(body, [delim]).join('\n');
   }
 
   // [{title, lines:[{kind:'cmd'|'comment', text}]}], the page's and the .sh's content
@@ -350,7 +743,7 @@
   }
 
   // ------------------------------------------------------------------ URL hash: only what differs from the defaults
-  function toHash(spec, rawState) {
+  function toHash(spec, rawState, skipSamples) {
     var st = normalize(spec, rawState), def = defaultState(spec), p = [];
     function enc(x) { return encodeURIComponent(x).replace(/'/g, '%27'); }
     function add(k, v) { p.push(enc(k) + '=' + enc(v)); }
@@ -359,9 +752,37 @@
       if (f.disabled) return;
       var a = st[f.id], b = def[f.id];
       if (f.type === 'checkgroup') { if (a.join(',') !== b.join(',')) add(f.id, a.join(',') || '-'); }
-      else if (a !== b) add(f.id, f.type === 'checkbox' ? (a ? '1' : '0') : a);
+      else {
+        if (f.compact === 'columns' && a) a = parseColumnNames(a).labels.join('\n');   // a proteinGroups header is kilobytes: keep the labels
+        if (a !== b) add(f.id, f.type === 'checkbox' ? (a ? '1' : '0') : a);
+      }
     });
+    if (spec.samples && !skipSamples && !samplesTooBig(spec, st, p)) {     // the table (s) and the comparisons (c), compactly
+      var rs = encodeRows(editedRows(spec, st)), cs = encodeComps(st.comparisons);
+      if (rs) add('s', rs);
+      if (cs) add('c', cs);
+    }
     return p.join('&');
+  }
+
+  // true when the table and comparisons would make the address too long (HASH_LIMIT characters): they are then left out of it
+  // the rows the address must carry: not the listing's own, unedited ones (the pasted list brings those back)
+  function editedRows(spec, st) {
+    var fresh = listingRows(spec, st), by = {};
+    (fresh || []).forEach(function (f) { by[f.key] = f; });
+    return st.samples.filter(function (r) {
+      var f = r.key && by[r.key];
+      return !(f && ROW_KEYS.every(function (k) { return r[k] === f[k]; }));
+    });
+  }
+  function samplesTooBig(spec, st, parts) {
+    var n = encodeURIComponent(encodeRows(editedRows(spec, st))).length + encodeURIComponent(encodeComps(st.comparisons)).length;
+    return n + (parts ? parts.join('&').length : 0) > HASH_LIMIT;
+  }
+  function hashTooBig(spec, rawState) {
+    if (!spec.samples) return false;
+    var st = normalize(spec, rawState), h = toHash(spec, st, true);
+    return samplesTooBig(spec, st, h ? [h] : []);
   }
 
   function fromHash(spec, hash) {
@@ -373,6 +794,7 @@
       try { raw[decodeURIComponent(pair.slice(0, i))] = decodeURIComponent(pair.slice(i + 1).replace(/\+/g, ' ')); } catch (e) { /* ignore a malformed pair */ }
     });
     allFields(spec).forEach(function (f) { if (f.type === 'checkgroup' && raw[f.id] === '-') raw[f.id] = []; });
+    if (spec.samples) { raw.samples = decodeRows(raw.s); raw.comparisons = decodeComps(raw.c); }
     return normalize(spec, raw);
   }
 
@@ -401,7 +823,17 @@
     shellQuote: shellQuote, shellWords: shellWords, oneLine: oneLine, allFields: allFields, defaultState: defaultState,
     normalize: normalize, derive: derive, holds: holds, assemble: assemble, render: render, toScript: toScript,
     toHash: toHash, fromHash: fromHash, multiLine: multiLine, parseFastqNames: parseFastqNames, pairFastqs: pairFastqs,
-    fastqSheet: fastqSheet, parseAccessions: parseAccessions, sampleName: sampleName, replicateOf: replicateOf
+    fastqSheet: fastqSheet, parseAccessions: parseAccessions, sampleName: sampleName, replicateOf: replicateOf,
+    // the samples & comparisons block
+    TABLES: TABLES, CONTRAST_HEADER: CONTRAST_HEADER, CSV_MAX_BYTES: CSV_MAX_BYTES, HASH_LIMIT: HASH_LIMIT,
+    splitSample: splitSample, labelStem: labelStem, parseCsv: parseCsv, checkCsvFile: checkCsvFile, samplesFromCsv: samplesFromCsv,
+    rowsFromFastqListing: rowsFromFastqListing, parseColumnNames: parseColumnNames, rowsFromColumnNames: rowsFromColumnNames,
+    mergeListing: mergeListing, groupsOf: groupsOf, metadataLines: metadataLines, contrastLines: contrastLines,
+    comparisonId: comparisonId, resolveComparisons: resolveComparisons, addComparison: addComparison, allVsReference: allVsReference,
+    removeComparison: removeComparison, setComparisonId: setComparisonId, defaultReference: defaultReference, fillSlot: fillSlot,
+    nextSlot: nextSlot, dropOnSlot: dropOnSlot, submitSlots: submitSlots, encodeRows: encodeRows, decodeRows: decodeRows,
+    encodeComps: encodeComps, decodeComps: decodeComps, samplesToJson: samplesToJson, samplesFromJson: samplesFromJson,
+    hashTooBig: hashTooBig, blankRow: blankRow, csvField: csvField
   };
 
   // ================================================================== the page
@@ -417,11 +849,284 @@
     return n;
   }
 
+  // ------------------------------------------------------------------ the samples & comparisons card
+  // ctx: {state(): the page's state, mutate(fn): fn edits state.samples / state.comparisons, then the page updates}
+  function buildSamples(spec, ctx) {
+    var sb = spec.samples, uid = 'sb' + Math.random().toString(36).slice(2, 7);
+    var root = el('div', { class: 'samples-block', id: 'samples-block' });
+    var slots = { target: '', reference: '' }, lastRows = null, lastChips = null, lastComps = null;
+    var pipeOf = function () { var st = ctx.state(); return sb.pipeline === '$assay' ? st.assay : sb.pipeline; };
+    var inside = function (box) { return box.contains(document.activeElement) && /^(INPUT|SELECT)$/.test(document.activeElement.tagName); };
+
+    var intro = el('p', { class: 'hint' });
+    var privacy = el('p', { class: 'privacy small', text: 'Files are read in your browser (FileReader) and are never uploaded: nothing leaves this page.' });
+    var listingNote = el('p', { class: 'hint' });
+    var fileInput = el('input', { type: 'file', accept: '.csv,.tsv,text/csv', id: uid + '-file', class: 'visually-hidden', 'aria-label': 'Choose a CSV file' });
+    var zone = el('div', { class: 'dropzone', tabindex: '0', role: 'button', 'aria-describedby': uid + '-zone-hint' }, [
+      el('b', { text: 'Drop a CSV here' }), el('span', { text: ' or click to choose one' }),
+      el('small', { class: 'hint', id: uid + '-zone-hint', text: 'An nf-core samplesheet.csv, a metadata.csv or a proteomics experimental_design.csv (up to 1 MB).' })]);
+    var csvMsg = el('div', { class: 'csv-msg small', role: 'status', 'aria-live': 'polite' });
+
+    var table = el('table', { class: 'samples' });
+    var thead = el('thead'), tbody = el('tbody');
+    table.appendChild(el('caption', { class: 'visually-hidden', text: 'Samples: one row per sample' }));
+    table.appendChild(thead); table.appendChild(tbody);
+    var groupList = el('datalist', { id: uid + '-groups' });
+    var tableMsg = el('p', { class: 'hint small' });
+    var notesBox = el('ul', { class: 'notes small' });
+    var tooBig = el('p', { class: 'hint reason small', hidden: '' });
+
+    var addBtn = el('button', { type: 'button', class: 'btn small-btn', text: 'Add row' });
+    var clearBtn = el('button', { type: 'button', class: 'btn small-btn', text: 'Clear table' });
+    var saveBtn = el('button', { type: 'button', class: 'btn small-btn', text: 'Save state (JSON)' });
+    var loadBtn = el('button', { type: 'button', class: 'btn small-btn', text: 'Load state' });
+    var loadInput = el('input', { type: 'file', accept: '.json,application/json', class: 'visually-hidden', 'aria-label': 'Choose a saved state (JSON)' });
+
+    var chips = el('div', { class: 'chips', role: 'group', 'aria-label': 'Groups in the table' });
+    var slotT = el('div', { class: 'slot', 'data-slot': 'target', 'aria-label': 'Target slot' });
+    var slotR = el('div', { class: 'slot', 'data-slot': 'reference', 'aria-label': 'Reference slot' });
+    var selT = el('select', { id: uid + '-t' }), selR = el('select', { id: uid + '-r' });
+    var addComp = el('button', { type: 'button', class: 'btn primary small-btn', text: 'Add comparison' });
+    var allBtn = el('button', { type: 'button', class: 'btn small-btn', text: 'All vs one reference' });
+    var compMsg = el('p', { class: 'hint small', role: 'status', 'aria-live': 'polite' });
+    var compList = el('ul', { class: 'comps' });
+
+    root.appendChild(intro); root.appendChild(privacy); root.appendChild(listingNote);
+    root.appendChild(zone); root.appendChild(fileInput); root.appendChild(csvMsg);
+    root.appendChild(el('h3', { text: 'Samples' }));
+    root.appendChild(el('div', { class: 'table-wrap' }, [table])); root.appendChild(groupList);
+    root.appendChild(el('div', { class: 'row-actions' }, [addBtn, clearBtn, saveBtn, loadBtn, loadInput]));
+    root.appendChild(tableMsg); root.appendChild(notesBox); root.appendChild(tooBig);
+    root.appendChild(el('h3', { text: 'Comparisons' }));
+    root.appendChild(el('p', { class: 'hint', id: uid + '-cmp-hint', text: 'Drag two groups onto Target and Reference (or tap a group, then another) to add a comparison. The selects below do the same on a touch screen or with the keyboard.' }));
+    root.appendChild(chips);
+    root.appendChild(el('div', { class: 'slots' }, [
+      el('div', { class: 'slot-box' }, [el('span', { class: 'slot-label', text: 'Target' }), slotT]),
+      el('span', { class: 'vs', text: 'vs', 'aria-hidden': 'true' }),
+      el('div', { class: 'slot-box' }, [el('span', { class: 'slot-label', text: 'Reference' }), slotR])]));
+    root.appendChild(el('div', { class: 'pick' }, [
+      el('div', { class: 'field' }, [el('label', { for: uid + '-t', text: 'Target' }), selT]),
+      el('div', { class: 'field' }, [el('label', { for: uid + '-r', text: 'Reference' }), selR]),
+      el('div', { class: 'pick-btns' }, [addComp, allBtn])]));
+    root.appendChild(compMsg); root.appendChild(compList);
+
+    function msg(text, bad) { csvMsg.textContent = ''; csvMsg.className = 'csv-msg small' + (bad ? ' bad' : ''); if (text) csvMsg.appendChild(document.createTextNode(text)); }
+
+    // ---- a CSV in
+    function showRecognised(r) {
+      csvMsg.className = 'csv-msg small';
+      csvMsg.textContent = '';
+      csvMsg.appendChild(el('div', { text: r.notes[0] }));
+      var rec = el('div', { class: 'recognised' }, [el('span', { text: 'Recognised columns: ' })]);
+      r.recognised.forEach(function (x) { rec.appendChild(el('span', { class: 'tag', text: x.column + ' → ' + x.as })); });
+      csvMsg.appendChild(rec);
+      if (r.ignored.length) csvMsg.appendChild(el('div', { class: 'hint', text: 'Not used: ' + r.ignored.slice(0, 8).join(', ') + (r.ignored.length > 8 ? ', ...' : '') }));
+      r.notes.slice(1).forEach(function (n) { csvMsg.appendChild(el('div', { class: 'hint', text: n })); });
+    }
+    function readFile(file, limit, done) {
+      var rd = new FileReader();
+      rd.onerror = function () { msg('The file could not be read.', true); };
+      rd.onload = function () { done(String(rd.result)); };
+      rd.readAsText(file.slice(0, limit + 1));
+    }
+    function loadCsv(file) {
+      if (!file) return;
+      var bad = checkCsvFile(file.name, file.size);
+      if (bad) { msg(bad, true); return; }
+      readFile(file, CSV_MAX_BYTES, function (text) {
+        var r = samplesFromCsv(text, pipeOf());
+        if (!r.ok) { msg(r.error, true); return; }
+        ctx.mutate(function (st) { st.samples = r.rows; });
+        showRecognised(r);
+      });
+    }
+    zone.addEventListener('click', function () { fileInput.click(); });
+    zone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+    fileInput.addEventListener('change', function () { loadCsv(fileInput.files[0]); fileInput.value = ''; });
+    ['dragenter', 'dragover'].forEach(function (t) { zone.addEventListener(t, function (e) { e.preventDefault(); zone.classList.add('over'); }); });
+    zone.addEventListener('dragleave', function () { zone.classList.remove('over'); });
+    zone.addEventListener('drop', function (e) {
+      e.preventDefault(); zone.classList.remove('over');
+      var files = e.dataTransfer && e.dataTransfer.files;
+      if (files && files.length) loadCsv(files[0]); else msg('Drop a file, not text: paste text into the lists above.', true);
+    });
+
+    // ---- the table
+    function columns() {
+      var p = pipeOf(), t = TABLES[p] || TABLES.rnaseq, cols = [{ f: 'sample', label: p === 'proteomics' ? 'Label (intensity column)' : 'Sample' },
+        { f: 'group', label: 'Group' }, { f: 'replicate', label: 'Replicate' }];
+      t.extras.forEach(function (x) { cols.push({ f: x, label: x.charAt(0).toUpperCase() + x.slice(1) }); });
+      return cols;
+    }
+    function renderTable(rows) {
+      var cols = columns(), dl = groupList;
+      thead.textContent = ''; tbody.textContent = '';
+      var hr = el('tr');
+      cols.forEach(function (c) { hr.appendChild(el('th', { scope: 'col', text: c.label })); });
+      hr.appendChild(el('th', { scope: 'col' }, [el('span', { class: 'visually-hidden', text: 'Remove' })]));
+      thead.appendChild(hr);
+      rows.forEach(function (row, i) {
+        var tr = el('tr'), ins = {};
+        cols.forEach(function (c) {
+          var inp = el('input', { type: 'text', value: row[c.f] || '', autocomplete: 'off', spellcheck: 'false', 'aria-label': c.label + ', row ' + (i + 1) });
+          if (c.f === 'group') inp.setAttribute('list', dl.id);
+          if (c.f === 'strandedness') inp.setAttribute('placeholder', 'auto');
+          ins[c.f] = inp;
+          inp.addEventListener('input', function () { ctx.mutate(function (st) { st.samples[i][c.f] = cell(inp.value); }); });
+          if (c.f === 'sample') inp.addEventListener('change', function () {      // a new name fills an empty group / replicate
+            ctx.mutate(function (st) {
+              var r = st.samples[i], d = derivedCells(pipeOf(), r.sample);
+              if (!r.group) { r.group = d.group; ins.group.value = d.group; }
+              if (!r.replicate && d.replicate) { r.replicate = d.replicate; ins.replicate.value = d.replicate; }
+            });
+          });
+          tr.appendChild(el('td', {}, [inp]));
+        });
+        var rm = el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove row ' + (i + 1) + (row.sample ? ' (' + row.sample + ')' : ''), text: '×' });
+        if (row.key) { rm.disabled = true; rm.title = 'This sample comes from the pasted list: remove it from the list'; }
+        rm.addEventListener('click', function () { ctx.mutate(function (st) { st.samples.splice(i, 1); }); });
+        tr.appendChild(el('td', {}, [rm]));
+        tbody.appendChild(tr);
+      });
+      if (!rows.length) {
+        var tr0 = el('tr'), td0 = el('td', { colspan: String(cols.length + 1), class: 'empty', text: 'No samples yet: paste a list, drop a CSV, or add rows.' });
+        tr0.appendChild(td0); tbody.appendChild(tr0);
+      }
+    }
+    addBtn.addEventListener('click', function () { ctx.mutate(function (st) { st.samples.push(blankRow()); }); var last = tbody.querySelector('tr:last-child input'); if (last) last.focus(); });
+    clearBtn.addEventListener('click', function () { ctx.mutate(function (st) { st.samples = []; st.comparisons = []; }); slots = { target: '', reference: '' }; msg(''); });
+    saveBtn.addEventListener('click', function () {
+      var st = ctx.state(), blob = new Blob([samplesToJson(st.samples, st.comparisons)], { type: 'application/json' });
+      var a = el('a', { download: 'samples-and-comparisons.json', href: URL.createObjectURL(blob) });
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    });
+    loadBtn.addEventListener('click', function () { loadInput.click(); });
+    loadInput.addEventListener('change', function () {
+      var f = loadInput.files[0]; loadInput.value = '';
+      if (!f) return;
+      if (!/\.json$/i.test(f.name)) { msg('"' + f.name.slice(0, 60) + '" is not a saved state (.json).', true); return; }
+      if (f.size > CSV_MAX_BYTES) { msg('The file is too large for a saved state.', true); return; }
+      readFile(f, CSV_MAX_BYTES, function (text) {
+        var r = samplesFromJson(text);
+        if (!r.ok) { msg(r.error, true); return; }
+        ctx.mutate(function (st) { st.samples = r.rows; st.comparisons = r.comps; });
+        msg('Loaded ' + r.rows.length + ' sample(s) and ' + r.comps.length + ' comparison(s).');
+      });
+    });
+
+    // ---- comparisons: chips, slots, selects, list
+    function say(t, bad) { compMsg.textContent = t || ''; compMsg.className = 'hint small' + (bad ? ' reason' : ''); }
+    function apply(r) {
+      slots = r.slots;
+      if (r.added) ctx.mutate(function (st) { st.comparisons = r.comps; });
+      else syncPick(ctx.state());
+      say(r.added ? (r.added + ' comparison' + (r.added > 1 ? 's' : '') + ' added.') : r.error, !!r.error);
+    }
+    function groupsNow() { return groupsOf(ctx.state().samples); }
+    function onDrop(which, e) {
+      e.preventDefault();
+      var g = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || '';
+      var st = ctx.state();
+      apply(dropOnSlot(st.comparisons, slots, which, g, groupsOf(st.samples)));
+    }
+    [slotT, slotR].forEach(function (slot) {
+      var which = slot.getAttribute('data-slot');
+      ['dragenter', 'dragover'].forEach(function (t) { slot.addEventListener(t, function (e) { e.preventDefault(); slot.classList.add('over'); }); });
+      slot.addEventListener('dragleave', function () { slot.classList.remove('over'); });
+      slot.addEventListener('drop', function (e) { slot.classList.remove('over'); onDrop(which, e); });
+    });
+    selT.addEventListener('change', function () { var r = fillSlot(slots, 'target', selT.value, groupsNow()); slots = r.slots; syncPick(ctx.state()); say(r.error, !!r.error); });
+    selR.addEventListener('change', function () { var r = fillSlot(slots, 'reference', selR.value, groupsNow()); slots = r.slots; syncPick(ctx.state()); say(r.error, !!r.error); });
+    addComp.addEventListener('click', function () { var st = ctx.state(); apply(submitSlots(st.comparisons, slots, groupsOf(st.samples))); });
+    allBtn.addEventListener('click', function () {
+      var st = ctx.state(), g = groupsOf(st.samples), ref = slots.reference || defaultReference(g);
+      var r = allVsReference(st.comparisons, ref, g);
+      slots = { target: '', reference: slots.reference };
+      apply({ comps: r.comps, slots: slots, error: r.error, added: r.added });
+    });
+
+    function renderChips(groups) {
+      chips.textContent = '';
+      groupList.textContent = '';
+      groups.forEach(function (g) { groupList.appendChild(el('option', { value: g })); });
+      if (!groups.length) { chips.appendChild(el('span', { class: 'hint', text: 'Groups appear here once the table has them.' })); return; }
+      groups.forEach(function (g) {
+        var b = el('button', { type: 'button', class: 'chip', draggable: 'true', title: 'Drag onto Target or Reference, or tap', text: g });
+        b.addEventListener('dragstart', function (e) { e.dataTransfer.setData('text/plain', g); e.dataTransfer.effectAllowed = 'copy'; b.classList.add('dragging'); });
+        b.addEventListener('dragend', function () { b.classList.remove('dragging'); });
+        b.addEventListener('click', function () {
+          var st = ctx.state(), which = nextSlot(slots) || 'target';
+          if (!nextSlot(slots)) slots = { target: '', reference: '' };
+          apply(dropOnSlot(st.comparisons, slots, which, g, groupsOf(st.samples)));
+        });
+        chips.appendChild(b);
+      });
+    }
+    function syncPick(st) {
+      var groups = groupsOf(st.samples);
+      ['target', 'reference'].forEach(function (w) { if (slots[w] && groups.indexOf(slots[w]) < 0) slots[w] = ''; });
+      [[selT, 'target'], [selR, 'reference']].forEach(function (p) {
+        p[0].textContent = '';
+        p[0].appendChild(el('option', { value: '', text: p[1] === 'target' ? 'Choose the target group' : 'Choose the reference group' }));
+        groups.forEach(function (g) { p[0].appendChild(el('option', { value: g, text: g })); });
+        p[0].value = slots[p[1]];
+      });
+      [[slotT, 'target'], [slotR, 'reference']].forEach(function (p) {
+        p[0].textContent = '';
+        if (slots[p[1]]) {
+          var clr = el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Clear the ' + p[1] + ' slot', text: '×' });
+          clr.addEventListener('click', function () { slots[p[1]] = ''; syncPick(ctx.state()); });
+          p[0].appendChild(el('span', { class: 'chip fixed', text: slots[p[1]] })); p[0].appendChild(clr);
+        } else p[0].appendChild(el('span', { class: 'hint', text: 'drop a group here' }));
+      });
+      allBtn.textContent = groups.length ? 'All vs ' + (slots.reference || defaultReference(groups)) : 'All vs one reference';
+      addComp.disabled = !(slots.target && slots.reference); allBtn.disabled = groups.length < 2;
+    }
+    function renderComps(st) {
+      var res = resolveComparisons(st.comparisons, groupsOf(st.samples));
+      compList.textContent = '';
+      if (!res.length) { compList.appendChild(el('li', { class: 'hint', text: 'No comparisons yet.' })); return; }
+      res.forEach(function (c, i) {
+        var idIn = el('input', { type: 'text', value: c.id, autocomplete: 'off', spellcheck: 'false', 'aria-label': 'ID of comparison ' + c.target + ' vs ' + c.reference });
+        idIn.addEventListener('input', function () { ctx.mutate(function (s) { s.comparisons = setComparisonId(s.comparisons, i, idIn.value); }); });
+        idIn.addEventListener('change', function () { ctx.mutate(function (s) { s.comparisons = setComparisonId(s.comparisons, i, idIn.value); }); renderComps(ctx.state()); });
+        var rm = el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove comparison ' + c.target + ' vs ' + c.reference, text: '×' });
+        rm.addEventListener('click', function () { ctx.mutate(function (s) { s.comparisons = removeComparison(s.comparisons, i); }); });
+        compList.appendChild(el('li', { class: c.valid ? '' : 'invalid' }, [idIn,
+          el('span', { class: 'what', text: c.target + ' vs ' + c.reference + (c.valid ? '' : ' (a group is not in the table: left out)') }), rm]));
+      });
+    }
+
+    function sync(st, vals) {
+      root.hidden = !vals.samples_visible;
+      var by = sb.introBy && sb.introBy[sb.pipeline === '$assay' ? st.assay : st.input];
+      intro.textContent = by || sb.intro || '';
+      listingNote.textContent = sb.listing ? sb.listing.note || '' : '';
+      listingNote.hidden = !listingNote.textContent;
+      var rowsSig = JSON.stringify([pipeOf(), st.samples]);
+      if (rowsSig !== lastRows && !inside(tbody)) { lastRows = rowsSig; renderTable(st.samples); }
+      var groups = groupsOf(st.samples), chipSig = groups.join('\u0001');
+      if (chipSig !== lastChips) { lastChips = chipSig; renderChips(groups); }
+      syncPick(st);
+      var compSig = JSON.stringify([st.comparisons, groups]);
+      if (compSig !== lastComps && !inside(compList)) { lastComps = compSig; renderComps(st); }
+      tableMsg.textContent = vals.samples_n ? vals.samples_n + ' sample(s) in ' + groups.length + ' group(s).' : '';
+      notesBox.textContent = '';
+      (vals.meta_notes || []).concat(vals.con_notes || []).forEach(function (n) { notesBox.appendChild(el('li', { text: n })); });
+      var big = hashTooBig(spec, st);
+      tooBig.hidden = !big;
+      tooBig.textContent = big ? 'The table and comparisons are too big for the page address, so the address leaves them out. Use "Save state (JSON)" to keep them and "Load state" to bring them back.' : '';
+    }
+    return { root: root, sync: sync };
+  }
+
   function start(spec) {
     var state = fromHash(spec, location.hash);
     var form = $('#builder-form');
     form.innerHTML = '';
     var controls = {};                                   // id -> {row, inputs, ...}
+    var sectionEls = [], samplesUI = null;
 
     function fieldRow(f) {
       var id = 'f-' + f.id, row, hint = f.hint ? el('small', { class: 'hint', text: f.hint, id: id + '-hint' }) : null;
@@ -468,7 +1173,7 @@
         if (hint) ta.setAttribute('aria-describedby', id + '-hint');
         row = el('div', { class: 'field field-wide' }, [el('label', { for: id, text: f.label }), ta]);
         if (hint) row.appendChild(hint);
-        ta.addEventListener('input', function () { state[f.id] = multiLine(ta.value); update(true); });
+        ta.addEventListener('input', function () { state[f.id] = multiLine(ta.value, f.lineMax); update(true); });
         controls[f.id] = { row: row, input: ta, field: f };
       } else {
         var inp = el('input', { type: 'text', id: id, autocomplete: 'off', spellcheck: 'false', placeholder: (spec.placeholders && spec.placeholders[f.id]) || '' });
@@ -511,6 +1216,14 @@
         } else grid.appendChild(row);
       });
       sec.appendChild(grid);
+      if (s.component === 'samples' && spec.samples) {    // the shared samples & comparisons block
+        samplesUI = buildSamples(spec, {
+          state: function () { return state; },
+          mutate: function (fn) { fn(state); update(true); }
+        });
+        sec.appendChild(samplesUI.root);
+      }
+      sectionEls.push({ el: sec, when: s.when });
       form.appendChild(sec);
     });
     // the isoform master checkbox sits above its block
@@ -523,7 +1236,9 @@
     function update(typing) {
       state = normalize(spec, state);
       var vals = Object.assign({}, state, derive(spec, state));
-      $('#in-' + state.input).checked = true;
+      var radio = $('#in-' + state.input);
+      if (radio) radio.checked = true;
+      sectionEls.forEach(function (x) { x.el.hidden = !holds(x.when, vals); });
       allFields(spec).forEach(function (f) {
         var c = controls[f.id];
         var visible = holds(f.when, vals);
@@ -541,6 +1256,7 @@
           c.input.value = state[f.id];
         }
       });
+      if (samplesUI) samplesUI.sync(state, vals);
       var res = assemble(spec, state);
       lastText = render(res.blocks);
       pre.textContent = lastText;

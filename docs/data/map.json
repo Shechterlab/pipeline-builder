@@ -8,6 +8,17 @@
     "waits": "map --status --watch,\n# status after fetch and map"
   },
   "derived": ["samplesheet", "accessions"],
+  "samples": {
+    "pipeline": "$assay",
+    "showWhen": [[]],
+    "introBy": {
+      "rnaseq": "Optional for RNA-seq: lab-rnaseq setup drafts its own metadata and comparisons from your sample names once mapping has finished. Use this to see how your names split into groups, or to save your own comparisons as contrasts.csv (tick the box below).",
+      "atacseq": "Written next to the samplesheet as inputs/metadata.csv (and inputs/contrasts.csv when you add comparisons), so analyze can follow.",
+      "chipseq": "Written next to the samplesheet as inputs/metadata.csv (sample, condition, replicate, antibody) and, when you add comparisons, inputs/contrasts.csv, so analyze can follow.",
+      "proseq": "Written next to the samplesheet as inputs/metadata.csv (and inputs/contrasts.csv when you add comparisons), so analyze can follow."
+    },
+    "listing": { "field": "fastq_list", "kind": "fastq", "note": "The FASTQ names pasted in section 3 fill this table (one row per sample); edit any cell, and the samplesheet follows your edits." }
+  },
   "placeholders": {
     "exp": "/path/to/experiment",
     "project": "/path/to/project",
@@ -24,7 +35,8 @@
     "dry_oth": ["dry_run", "assay!=rnaseq"],
     "dry_oth_public": ["dry_run", "assay!=rnaseq", "input=public"],
     "chip_type_set": ["assay=chipseq", "chip_assay!=chipseq"],
-    "non_hg38": ["genome!=hg38"]
+    "non_hg38": ["genome!=hg38"],
+    "rna_extra": ["assay=rnaseq", "rna_contrasts", "con_has"]
   },
   "inputs": [
     { "id": "fastq", "label": "FASTQ folder", "hint": "Raw reads already on the cluster." },
@@ -58,7 +70,7 @@
         { "id": "exp", "type": "text", "label": "Experiment folder", "hint": "One folder per dataset; the nf-core output goes inside it.", "when": ["assay=rnaseq"] },
         { "id": "project", "type": "text", "trimSlash": true, "label": "Project folder", "hint": "init creates it (a relative path is made absolute).", "when": ["assay!=rnaseq"] },
         { "id": "fastq_dir", "type": "text", "label": "FASTQ folder", "hint": "Absolute path to the folder holding the .fastq.gz files.", "when": ["input=fastq"] },
-        { "id": "fastq_list", "type": "textarea", "rows": 7, "label": "FASTQ file names", "hint": "Paste the output of ls on that folder, one name per line. R1/R2 mates are paired for you (_R1/_R2, _1/_2, .R1/.R2); a file without a mate is single-end. Lanes such as _L001 become extra rows of the same sample.", "when": ["input=fastq", "assay!=rnaseq"] },
+        { "id": "fastq_list", "type": "textarea", "rows": 7, "label": "FASTQ file names", "hint": "Paste the output of ls on that folder, one name per line. R1/R2 mates are paired for you (_R1/_R2, _1/_2, .R1/.R2); a file without a mate is single-end. Lanes such as _L001 become extra rows of the same sample. For RNA-seq this only fills the sample table below: lab-rnaseq samplesheet writes the samplesheet itself.", "when": ["input=fastq"] },
         { "id": "single_end", "type": "checkbox", "label": "Single-end reads (every file is its own read 1; CTRL_1, CTRL_2 are replicates, not mates)", "default": false, "when": ["input=fastq"] },
         { "id": "strandedness", "type": "select", "label": "Strandedness", "default": "auto", "options": ["auto", "forward", "reverse", "unstranded"], "when": ["input=fastq", "assay=rnaseq"] },
         { "id": "proseq_strand", "type": "select", "label": "Strandedness", "default": "forward", "options": ["forward", "reverse", "unstranded", "auto"], "hint": "PRO-seq libraries are almost always stranded: check your kit's documentation.", "when": ["input=fastq", "assay=proseq"] },
@@ -67,8 +79,16 @@
       ]
     },
     {
+      "id": "samples",
+      "title": "4. Samples & comparisons",
+      "component": "samples",
+      "fields": [
+        { "id": "rna_contrasts", "type": "checkbox", "label": "Also save my comparisons as contrasts.csv (optional: lab-rnaseq setup drafts its own later)", "default": false, "when": ["assay=rnaseq"] }
+      ]
+    },
+    {
       "id": "mapping",
-      "title": "4. Reference and cluster",
+      "title": "5. Reference and cluster",
       "fields": [
         { "id": "genome", "type": "select", "label": "Genome", "default": "hg38", "options": ["hg38", "mm10", "hg38_dm6", "dm6", "rn6", "danRer11"], "hint": "A refgenie genome name; the references must be staged (see the install step)." },
         { "id": "account", "type": "text", "label": "Slurm account (optional)", "when": ["assay=rnaseq"] },
@@ -121,6 +141,12 @@
           { "words": ["cp", "fetchngs/samplesheet/samplesheet.csv", "samplesheet.csv"] },
           { "comment": "fetchngs names the samples after the experiment accessions: edit the sample column to <group>_REP<n> (lab-rnaseq setup drafts metadata and contrasts from them)." }
         ] },
+        { "title": "your comparisons (optional extra)", "when": ["rna_extra"], "lines": [
+          { "notes": "con_notes" },
+          { "comment": "Saved here as contrasts.csv, nothing reads it yet: lab-rnaseq setup (RNA-seq analysis page) drafts its own analysis/inputs/contrasts.csv from the sample names." },
+          { "comment": "After setup, copy yours over the draft:  cp contrasts.csv analysis/inputs/contrasts.csv   (or tick 'Define comparisons here' on the RNA-seq analysis page, which writes it for you)." },
+          { "heredoc": { "target": ["contrasts.csv"], "body": "con_lines" } }
+        ] },
         { "title": "map with nf-core/rnaseq (Slurm)", "lines": [
           { "words": ["lab-rnaseq", "map", "--dry-run", { "flag": "--genome", "value": "genome" }, { "flag": "--account", "value": "account", "when": ["account"] }, { "flag": "--partition", "value": "partition", "when": ["partition"] }, { "flag": "--extra-params", "value": "extra_params", "when": ["extra_params"] }, { "flag": "--revision", "value": "revision", "when": ["revision"] }, { "flag": "--outdir", "value": "outdir", "when": ["outdir"] }] },
           { "words": ["lab-rnaseq", "map", { "flag": "--genome", "value": "genome" }, { "flag": "--account", "value": "account", "when": ["account"] }, { "flag": "--partition", "value": "partition", "when": ["partition"] }, { "flag": "--extra-params", "value": "extra_params", "when": ["extra_params"] }, { "flag": "--revision", "value": "revision", "when": ["revision"] }, { "flag": "--outdir", "value": "outdir", "when": ["outdir"] }], "when": ["!dry_rna_fastq"] },
@@ -163,6 +189,16 @@
           { "comment": "fetchngs names the samples after the experiment accessions and sets every replicate to 1: edit the sample and replicate columns of inputs/samplesheet.csv.", "when": ["assay=atacseq"] },
           { "comment": "The fetched samplesheet is at results/fetch/fetch/output/samplesheet/samplesheet.csv. Write inputs/samplesheet.csv from its sample, fastq_1 and fastq_2 columns, with the header sample,fastq_1,fastq_2,replicate,antibody,control: replicate numbers, each sample's antibody, and as control the sample name of its Input/IgG (blank for the Input/IgG samples).", "when": ["assay=chipseq"] },
           { "comment": "The fetched samplesheet is at results/fetch/fetch/output/samplesheet/samplesheet.csv. Write inputs/samplesheet.csv from its sample, fastq_1 and fastq_2 columns, with the header sample,fastq_1,fastq_2,strandedness and forward or reverse (not auto) as strandedness.", "when": ["assay=proseq"] }
+        ] },
+        { "title": "write the sample table and comparisons", "when": ["meta_has"], "lines": [
+          { "notes": "meta_notes" },
+          { "comment": "inputs/metadata.csv is the sample table that `analyze` reads next to the samplesheet; this replaces the header-only file init wrote. Its sample names match the samplesheet's." },
+          { "heredoc": { "target": [{ "value": "project", "suffix": "/inputs/metadata.csv" }], "body": "meta_lines" } },
+          { "notes": "con_notes" },
+          { "comment": "inputs/contrasts.csv holds your comparisons (id, variable, reference, target); this replaces the header-only file init wrote. check reads both files; analyze takes it with --contrasts.", "when": ["con_has"] },
+          { "heredoc": { "target": [{ "value": "project", "suffix": "/inputs/contrasts.csv" }], "body": "con_lines" }, "when": ["con_has"] },
+          { "comment": "Define comparisons above to write inputs/contrasts.csv too; the analysis needs at least one.", "when": ["!con_has"] },
+          { "comment": "The analysis (analyze, compare, report) is not part of this page.", "when": ["con_has"] }
         ] },
         { "title": "check the project", "when": ["!dry_oth_public"], "lines": [
           { "comment": "For public data: once the fetch has finished and inputs/samplesheet.csv is edited.", "when": ["input=public"] },

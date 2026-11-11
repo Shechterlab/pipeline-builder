@@ -473,16 +473,19 @@ test('output groups commands under numbered "# step" lines, comments stay commen
   assert.ok(heads.length >= 5);
   heads.forEach((h, i) => assert.ok(h.startsWith(`# step ${i + 1}: `)));
   assert.ok(t.endsWith('\n') && !t.includes('\n\n\n'));
-  assert.equal((t.match(/<<'EOF'/g) || []).length, 1);
-  assert.equal(t.split('\n').filter((l) => l === 'EOF').length, 1);
+  assert.equal((t.match(/<<'EOF'/g) || []).length, 2, 'the samplesheet and the metadata.csv the pasted list gives');
+  assert.equal(t.split('\n').filter((l) => l === 'EOF').length, 2);
+  const t2 = text({ assay: 'chipseq', fastq_list: NAMES, input: 'fastq', comparisons: [{ target: 'KO', reference: 'CTRL', id: '' }] });
+  assert.equal((t2.match(/<<'EOF'/g) || []).length, 3, 'samplesheet, metadata.csv, contrasts.csv');
+  assert.equal(t2.split('\n').filter((l) => l === 'EOF').length, 3);
 });
 
 // ---------------------------------------------------------------- 5. the pages
-test('both pages carry the nav "Map reads" | "RNA-seq analysis", the right one marked current, and the same asset version', () => {
+test('both pages carry the nav "Map reads" | "RNA-seq analysis" | "Proteomics", the right one marked current, and the same asset version', () => {
   const index = readFileSync(path.join(root, 'docs/index.html'), 'utf8'), map = readFileSync(path.join(root, 'docs/map.html'), 'utf8');
   const nav = (h) => /<nav class="site-nav"[^>]*>([\s\S]*?)<\/nav>/.exec(h)[1].replace(/\s+/g, ' ').trim();
-  assert.equal(nav(index), '<a href="map.html">Map reads</a> <a href="./" aria-current="page">RNA-seq analysis</a>');
-  assert.equal(nav(map), '<a href="map.html" aria-current="page">Map reads</a> <a href="./">RNA-seq analysis</a>');
+  assert.equal(nav(index), '<a href="map.html">Map reads</a> <a href="./" aria-current="page">RNA-seq analysis</a> <a href="proteomics.html">Proteomics</a>');
+  assert.equal(nav(map), '<a href="map.html" aria-current="page">Map reads</a> <a href="./">RNA-seq analysis</a> <a href="proteomics.html">Proteomics</a>');
   assert.match(map, /<title>Mapping · Shechter Lab<\/title>/);
   assert.match(map, /window\.BUILDER_SPEC = 'data\/map\.json'/);
   assert.ok(!/BUILDER_SPEC/.test(index));

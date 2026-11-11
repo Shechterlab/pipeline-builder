@@ -8,6 +8,15 @@
     "matrix": "/path/to/counts.tsv",
     "metadata": "/path/to/metadata.csv"
   },
+  "samples": {
+    "pipeline": "rnaseq",
+    "showWhen": [["input=matrix"], ["define_comps"]],
+    "introBy": {
+      "fastq": "Optional. lab-rnaseq setup drafts metadata.csv and contrasts.csv from your sample names (<group>_REP<n>). Define your own comparisons here and the page rewrites analysis/inputs/contrasts.csv right after setup. Drop your nf-core samplesheet.csv (or a metadata.csv), or type the samples; the groups must match the condition column setup drafts in analysis/inputs/metadata.csv.",
+      "nfcore": "Optional. lab-rnaseq setup drafts metadata.csv and contrasts.csv from your sample names (<group>_REP<n>). Define your own comparisons here and the page rewrites analysis/inputs/contrasts.csv right after setup. Drop the nf-core samplesheet.csv (or a metadata.csv), or type the samples; the groups must match the condition column setup drafts in analysis/inputs/metadata.csv.",
+      "matrix": "The count matrix needs a sample table. Fill it here and the page writes analysis/inputs/metadata.csv (sample, condition, replicate) and, with comparisons, analysis/inputs/contrasts.csv for lab-rnaseq run; or leave the table empty and give your own metadata CSV above (comparisons are then drafted: every group against the first one)."
+    }
+  },
   "moduleOrder": ["rmats", "spliceimpact", "sashimi", "apa", "ipa", "isoformswitch"],
   "moduleRequires": { "spliceimpact": "rmats", "sashimi": "rmats" },
   "defaults": {
@@ -42,7 +51,7 @@
         { "id": "fastq_dir", "type": "text", "label": "FASTQ folder", "when": ["input=fastq"] },
         { "id": "nfcore", "type": "text", "label": "nf-core results path (optional)", "hint": "Leave empty when it is nfcore_rnaseq/ inside the experiment folder.", "when": ["input=nfcore"] },
         { "id": "matrix", "type": "text", "label": "Count matrix", "when": ["input=matrix"] },
-        { "id": "metadata", "type": "text", "label": "Metadata CSV", "hint": "Needs sample and condition columns.", "when": ["input=matrix"] },
+        { "id": "metadata", "type": "text", "label": "Metadata CSV", "hint": "Needs sample and condition columns. Empty the table below to use your own file.", "when": ["input=matrix", "!meta_has"] },
         { "id": "genome", "type": "select", "label": "Genome", "default": "hg38", "options": ["hg38", "mm10", "hg38_dm6"], "when": ["input=fastq|nfcore"] },
         { "id": "organism", "type": "select", "label": "Organism", "default": "human", "options": ["human", "mouse", "drosophila", "rat", "zebrafish"], "when": [] },
         { "id": "strandedness", "type": "select", "label": "Strandedness", "default": "auto", "options": ["auto", "forward", "reverse", "unstranded"], "when": ["input=fastq"] },
@@ -53,8 +62,16 @@
       ]
     },
     {
+      "id": "samples",
+      "title": "3. Samples & comparisons",
+      "component": "samples",
+      "fields": [
+        { "id": "define_comps", "type": "checkbox", "label": "Define comparisons here (optional: setup drafts them from the sample names)", "default": false, "when": ["input=fastq|nfcore"] }
+      ]
+    },
+    {
       "id": "analyses",
-      "title": "3. Analyses",
+      "title": "4. Analyses",
       "fields": [
         { "id": "expression", "type": "checkbox", "label": "Gene expression (DESeq2, edgeR, enrichment, report)", "default": true, "disabled": true },
         { "id": "isoforms", "type": "checkbox", "label": "Isoform-level analyses", "default": false, "disabledWhen": ["input=matrix"], "disabledReason": "Isoform analyses need BAM files, which a count matrix does not have." },
@@ -137,6 +154,11 @@
           { "words": ["lab-rnaseq", "setup", { "flag": "--nfcore-results", "value": "nfcore", "when": ["nfcore"] }, { "flag": "--organism", "value": "organism" }, { "flag": "--reference-preset", "value": "preset", "when": ["input=nfcore", "preset"] }, { "flag": "--modules", "value": "modules_list", "when": ["isoforms_on"] }] },
           { "comment": "Review analysis/inputs/metadata.csv and analysis/inputs/contrasts.csv before going on." }
         ] },
+        { "title": "your comparisons (replaces setup's draft)", "when": ["define_comps", "con_has"], "lines": [
+          { "notes": "con_notes" },
+          { "comment": "This overwrites analysis/inputs/contrasts.csv, the draft setup just wrote from the sample names. Its groups must be values of the condition column of analysis/inputs/metadata.csv; `check` below fails if one is not." },
+          { "heredoc": { "target": ["analysis/inputs/contrasts.csv"], "body": "con_lines" } }
+        ] },
         { "title": "project settings", "skipIfEmpty": true, "lines": [
           { "words": ["lab-rnaseq", "config", "set", "project.slurm_account", { "value": "account" }], "when": ["account"] },
           { "words": ["lab-rnaseq", "config", "set", "slurm.partition", { "value": "partition" }], "when": ["partition"] },
@@ -178,9 +200,18 @@
         { "title": "go to the experiment folder", "lines": [
           { "words": ["cd", { "value": "exp" }] }
         ] },
+        { "title": "write the sample table and comparisons", "when": ["any_table"], "lines": [
+          { "notes": "meta_notes" },
+          { "notes": "con_notes" },
+          { "words": ["mkdir", "-p", "analysis/inputs"] },
+          { "comment": "run copies metadata.csv into the project only when the project has none, and drafts contrasts.csv only when the project has none: writing both here makes run use yours.", "when": ["meta_has"] },
+          { "heredoc": { "target": ["analysis/inputs/metadata.csv"], "body": "meta_lines" }, "when": ["meta_has"] },
+          { "heredoc": { "target": ["analysis/inputs/contrasts.csv"], "body": "con_lines" }, "when": ["con_has"] }
+        ] },
         { "title": "create the project and check it (dry run)", "lines": [
-          { "words": ["lab-rnaseq", "run", "--dry-run", { "flag": "--project-dir", "text": "analysis" }, { "flag": "--count-matrix", "value": "matrix" }, { "flag": "--metadata", "value": "metadata" }, { "flag": "--organism", "value": "organism" }] },
-          { "comment": "Review analysis/inputs/contrasts.csv (drafted: every group against the first one)." }
+          { "words": ["lab-rnaseq", "run", "--dry-run", { "flag": "--project-dir", "text": "analysis" }, { "flag": "--count-matrix", "value": "matrix" }, { "flag": "--metadata", "value": "metadata", "when": ["!meta_has"] }, { "flag": "--metadata", "text": "analysis/inputs/metadata.csv", "when": ["meta_has"] }, { "flag": "--organism", "value": "organism" }] },
+          { "comment": "Review analysis/inputs/contrasts.csv (drafted: every group against the first one).", "when": ["!con_has"] },
+          { "comment": "analysis/inputs/contrasts.csv holds your comparisons.", "when": ["con_has"] }
         ] },
         { "title": "project settings", "skipIfEmpty": true, "lines": [
           { "words": ["lab-rnaseq", "config", "set", "project.slurm_account", { "value": "account" }], "when": ["account"] },
@@ -196,7 +227,7 @@
           { "words": ["lab-rnaseq", "config", "set", "figures.formats", { "value": "formats_list" }], "when": ["formats_changed"] }
         ] },
         { "title": "submit the expression analysis", "when": ["!dry_run"], "lines": [
-          { "words": ["lab-rnaseq", "run", { "flag": "--project-dir", "text": "analysis" }, { "flag": "--count-matrix", "value": "matrix" }, { "flag": "--metadata", "value": "metadata" }, { "flag": "--organism", "value": "organism" }] }
+          { "words": ["lab-rnaseq", "run", { "flag": "--project-dir", "text": "analysis" }, { "flag": "--count-matrix", "value": "matrix" }, { "flag": "--metadata", "value": "metadata", "when": ["!meta_has"] }, { "flag": "--metadata", "text": "analysis/inputs/metadata.csv", "when": ["meta_has"] }, { "flag": "--organism", "value": "organism" }] }
         ] },
         { "title": "wait for the jobs, then write the report", "when": ["!dry_run"], "lines": [
           { "words": ["lab-rnaseq", "status", "--watch"] },
