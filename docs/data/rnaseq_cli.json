@@ -209,7 +209,7 @@
           "dest": "organism",
           "choices": null,
           "default": "",
-          "help": "references.organism (human, mouse, ...)",
+          "help": "references.organism (human, mouse, ...); without --reference-preset it also sets the preset (human: hg38, mouse: mm10)",
           "required": false,
           "nargs": null,
           "action": "store"
@@ -322,7 +322,7 @@
           "dest": "reference",
           "choices": null,
           "default": "",
-          "help": "Reference group for auto-generated contrasts (default: first group in metadata)",
+          "help": "Reference group for auto-generated contrasts (default: the control-like level (WT, CTRL, control, untreated, vehicle, DMSO, ...), else the first level in the metadata)",
           "required": false,
           "nargs": null,
           "action": "store"
@@ -570,8 +570,8 @@
               "dest": "samplesheet",
               "choices": null,
               "default": null,
-              "help": "nf-core samplesheet (sample,fastq_1,...)",
-              "required": true,
+              "help": "nf-core samplesheet (sample,fastq_1,...; default: the project's inputs/samplesheet.csv)",
+              "required": false,
               "nargs": null,
               "action": "store"
             },
@@ -1848,8 +1848,8 @@
           ],
           "dest": "genome",
           "choices": null,
-          "default": "hg38",
-          "help": "refgenie genome (default: hg38; mm10, hg38_dm6, ...)",
+          "default": "",
+          "help": "refgenie genome (hg38, mm10, hg38_dm6, ...; default: the project's references.reference_alias or reference_preset when run in or beside a project, else hg38)",
           "required": false,
           "nargs": null,
           "action": "store"
@@ -1897,7 +1897,7 @@
           "dest": "extra_params",
           "choices": null,
           "default": null,
-          "help": "YAML file of extra nf-core/rnaseq parameters (e.g. 3' mRNA-seq or UMI settings)",
+          "help": "YAML file of extra nf-core/rnaseq parameters (e.g. 3' mRNA-seq settings); added after the project's input.umi settings (with_umi, umitools_*), and a parameter set in both is this file's",
           "required": false,
           "nargs": null,
           "action": "store"
@@ -2553,8 +2553,8 @@
           "dest": "project_dir",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "the project (default: the current folder, the project above it, or ./analysis)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -2738,8 +2738,8 @@
           "dest": "project_dir",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "the project (default: the current folder, the project above it, or ./analysis)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },

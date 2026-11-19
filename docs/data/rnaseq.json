@@ -94,8 +94,8 @@
       "collapsible": true,
       "summary": "Thresholds, your own gene sets, figure formats, group order, run name, a dry run only. Empty or unchanged fields change nothing.",
       "fields": [
-        { "id": "padj", "type": "text", "numeric": true, "min": 0, "max": 1, "label": "Adjusted p threshold", "hint": "Pipeline default 0.01; written only when changed.", "default": "0.01" },
-        { "id": "log2fc", "type": "text", "numeric": true, "min": 0, "label": "log2 fold-change threshold", "hint": "Pipeline default 0.6; written only when changed.", "default": "0.6" },
+        { "id": "padj", "type": "text", "numeric": true, "min": 0, "max": 1, "label": "Adjusted p threshold", "hint": "Pipeline default 0.05; written only when changed.", "default": "0.05" },
+        { "id": "log2fc", "type": "text", "numeric": true, "min": 0, "label": "log2 fold-change threshold", "hint": "Pipeline default 0.585 (1.5-fold); written only when changed.", "default": "0.585" },
         { "id": "gmt", "type": "text", "list": true, "label": "Custom gene sets (GMT files)", "hint": "One or more paths, comma-separated (no commas inside a path). Each is scored by fgsea in every comparison." },
         { "id": "formats", "type": "checkgroup", "label": "Figure formats", "options": ["pdf", "png"], "default": ["pdf", "png"], "derived": "formats_list" },
         { "id": "group_order", "type": "text", "list": true, "label": "Group order", "hint": "Group names, comma-separated, to present first (e.g. CTRL,D2,D4).", "when": ["input=fastq|nfcore"] },

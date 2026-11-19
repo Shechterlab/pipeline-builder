@@ -32,7 +32,7 @@
       ]
     },
     "check": {
-      "help": "Validate config and environment",
+      "help": "Validate config, protein table and environment",
       "options": [
         {
           "flags": [
@@ -53,8 +53,20 @@
           "dest": "config",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "project config (default: <project-dir>/inputs/project_config.yaml)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--contrasts"
+          ],
+          "dest": "contrasts",
+          "choices": null,
+          "default": null,
+          "help": "contrasts CSV (default: <project-dir>/inputs/contrasts.csv)",
+          "required": false,
           "nargs": null,
           "action": "store"
         }
@@ -71,7 +83,7 @@
           "choices": null,
           "default": null,
           "help": null,
-          "required": true,
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -82,8 +94,8 @@
           "dest": "contrasts",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "contrasts CSV (default: <project-dir>/inputs/contrasts.csv)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -94,8 +106,8 @@
           "dest": "config",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "project config (default: <project-dir>/inputs/project_config.yaml)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -136,7 +148,7 @@
           "choices": null,
           "default": null,
           "help": null,
-          "required": true,
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -261,7 +273,7 @@
           "choices": null,
           "default": null,
           "help": null,
-          "required": true,
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -290,7 +302,7 @@
           "choices": null,
           "default": null,
           "help": null,
-          "required": true,
+          "required": false,
           "nargs": null,
           "action": "store"
         },

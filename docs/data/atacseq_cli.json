@@ -32,7 +32,7 @@
       ]
     },
     "check": {
-      "help": "Validate config and environment",
+      "help": "Validate config, sample sheet, metadata, contrasts and environment",
       "options": [
         {
           "flags": [
@@ -41,7 +41,7 @@
           "dest": "project_dir",
           "choices": null,
           "default": null,
-          "help": null,
+          "help": "project folder (default: the current folder)",
           "required": false,
           "nargs": null,
           "action": "store"
@@ -53,8 +53,8 @@
           "dest": "config",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "project config (default: <project-dir>/inputs/project_config.yaml)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -65,7 +65,31 @@
           "dest": "samplesheet",
           "choices": null,
           "default": null,
-          "help": null,
+          "help": "default: input.samplesheet or inputs/samplesheet.csv",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--metadata"
+          ],
+          "dest": "metadata",
+          "choices": null,
+          "default": null,
+          "help": "default: input.metadata or inputs/metadata.csv",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--contrasts"
+          ],
+          "dest": "contrasts",
+          "choices": null,
+          "default": null,
+          "help": "default: input.contrasts or inputs/contrasts.csv",
           "required": false,
           "nargs": null,
           "action": "store"
@@ -82,8 +106,8 @@
           "dest": "project_dir",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "project folder (default: the current folder)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -94,7 +118,7 @@
           "dest": "accessions",
           "choices": null,
           "default": null,
-          "help": null,
+          "help": "accession list: one per line, or a CSV with an 'accession' column (other columns are kept for the metadata)",
           "required": true,
           "nargs": null,
           "action": "store"
@@ -106,8 +130,8 @@
           "dest": "config",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "project config (default: <project-dir>/inputs/project_config.yaml)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -138,7 +162,7 @@
       ]
     },
     "map": {
-      "help": "Submit nf-core mapping job",
+      "help": "Submit the nf-core/atacseq mapping job",
       "options": [
         {
           "flags": [
@@ -147,8 +171,8 @@
           "dest": "project_dir",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "project folder (default: the current folder)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -159,8 +183,8 @@
           "dest": "samplesheet",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "default: input.samplesheet or inputs/samplesheet.csv",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -171,8 +195,32 @@
           "dest": "config",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "project config (default: <project-dir>/inputs/project_config.yaml)",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--metadata"
+          ],
+          "dest": "metadata",
+          "choices": null,
+          "default": null,
+          "help": "default: input.metadata or inputs/metadata.csv",
+          "required": false,
+          "nargs": null,
+          "action": "store"
+        },
+        {
+          "flags": [
+            "--contrasts"
+          ],
+          "dest": "contrasts",
+          "choices": null,
+          "default": null,
+          "help": "default: input.contrasts or inputs/contrasts.csv",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -224,8 +272,8 @@
           "dest": "project_dir",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "project folder (default: the current folder)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -236,8 +284,8 @@
           "dest": "contrasts",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "default: input.contrasts or inputs/contrasts.csv",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -248,8 +296,8 @@
           "dest": "config",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "project config (default: <project-dir>/inputs/project_config.yaml)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -260,7 +308,7 @@
           "dest": "manifest",
           "choices": null,
           "default": null,
-          "help": null,
+          "help": "map manifest.json (default: the newest map run's)",
           "required": false,
           "nargs": null,
           "action": "store"
@@ -272,7 +320,7 @@
           "dest": "count_matrix",
           "choices": null,
           "default": null,
-          "help": null,
+          "help": "consensus peak count matrix (featureCounts format)",
           "required": false,
           "nargs": null,
           "action": "store"
@@ -284,7 +332,7 @@
           "dest": "metadata",
           "choices": null,
           "default": null,
-          "help": null,
+          "help": "default: input.metadata or inputs/metadata.csv",
           "required": false,
           "nargs": null,
           "action": "store"
@@ -325,8 +373,8 @@
           "dest": "project_dir",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "project folder (default: the current folder)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -409,7 +457,7 @@
           "dest": "config",
           "choices": null,
           "default": null,
-          "help": "project config (thresholds, Slurm, env); optional",
+          "help": "project config (thresholds, Slurm, env); optional, default: <project-dir>/inputs/project_config.yaml when it exists",
           "required": false,
           "nargs": null,
           "action": "store"
@@ -450,8 +498,8 @@
           "dest": "project_dir",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "project folder (default: the current folder)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -462,8 +510,8 @@
           "dest": "config",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "project config (default: <project-dir>/inputs/project_config.yaml)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -527,8 +575,8 @@
           "dest": "project_dir",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "project folder (default: the current folder)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },
@@ -610,8 +658,8 @@
           "dest": "project_dir",
           "choices": null,
           "default": null,
-          "help": null,
-          "required": true,
+          "help": "project folder (default: the current folder)",
+          "required": false,
           "nargs": null,
           "action": "store"
         },

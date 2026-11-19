@@ -142,7 +142,8 @@ test('every command the page can emit, over all combinations of options, is a va
 test('the checker itself rejects an unknown flag, subcommand and missing flag', () => {
   assert.ok(problems('lab-chipseq map --nope').length);
   assert.ok(problems('lab-chipseq mapp --project-dir p').length);
-  assert.ok(problems('lab-atacseq map --project-dir p --samplesheet s').length, '--config is required');
+  assert.ok(problems('lab-atacseq fetch --project-dir p').length, '--accessions is required');
+  assert.deepEqual(problems('lab-atacseq map --project-dir p'), [], '--config and --samplesheet default to inputs/');
   assert.ok(problems('lab-rnaseq map --stage map').length, '--stage is a status flag of the others');
   assert.ok(problems('lab-proseq status --project-dir p --stage nope').length);
   assert.deepEqual(problems('lab-proseq status --project-dir p --stage map'), []);

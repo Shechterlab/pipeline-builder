@@ -361,7 +361,7 @@ test('the expression analysis is always on and not togglable', () => {
 
 // ---------------------------------------------------------------- 3. Advanced (optional)
 const ADV = {
-  padj: '0.05', log2fc: '1', gmt: ' /g/a.gmt , /g/b.gmt', formats: ['png'], group_order: 'CTRL, D2 ,D4', run_name: 'run1',
+  padj: '0.01', log2fc: '1', gmt: ' /g/a.gmt , /g/b.gmt', formats: ['png'], group_order: 'CTRL, D2 ,D4', run_name: 'run1',
   contrast_only: 'D2_vs_CTRL, D4_vs_CTRL', dry_run: false
 };
 const nfIso = { input: 'nfcore', isoforms: true };
@@ -374,7 +374,7 @@ test('advanced section: collapsible, after Analyses, fields as specified, defaul
   assert.equal(sec.title, 'Advanced (optional)'); assert.ok(sec.collapsible);
   assert.deepEqual(sec.fields.map((f) => f.id), ['padj', 'log2fc', 'gmt', 'formats', 'group_order', 'run_name', 'contrast_only', 'dry_run']);
   const d = B.defaultState(spec);
-  assert.equal(d.padj, '0.01'); assert.equal(d.log2fc, '0.6');
+  assert.equal(d.padj, '0.05'); assert.equal(d.log2fc, '0.585');
   assert.deepEqual(d.formats, ['pdf', 'png']);
   assert.equal(d.gmt, ''); assert.equal(d.dry_run, false);
   assert.equal(cfgKeys['analysis.padj_threshold'], 'number'); assert.equal(cfgKeys['analysis.log2fc_threshold'], 'number');
@@ -384,7 +384,7 @@ test('advanced section: with nothing set the output is identical, for every inpu
   for (const input of ['fastq', 'nfcore', 'matrix']) {
     const base = { input, isoforms: true, design: true, style: 'paper', account: 'a', email: 'e@x.org' };
     const plain = text(base);
-    const same = { ...base, padj: '0.01', log2fc: '0.60', gmt: ' , ', formats: ['png', 'pdf'], group_order: ',', run_name: '  ', contrast_only: ' ', dry_run: false };
+    const same = { ...base, padj: '0.050', log2fc: '0.5850', gmt: ' , ', formats: ['png', 'pdf'], group_order: ',', run_name: '  ', contrast_only: ' ', dry_run: false };
     assert.equal(text(same), plain, input);
     assert.equal(text({ ...base, padj: '', log2fc: 'abc', formats: [] }), plain, 'empty or invalid values are ignored');
     assert.equal(text({ ...base, padj: '2', log2fc: '-1' }), plain, 'out of range values are ignored');
@@ -393,13 +393,13 @@ test('advanced section: with nothing set the output is identical, for every inpu
 
 test('advanced section: each field writes its own lines only when set', () => {
   assert.deepEqual(advCfg(ADV), [
-    'lab-rnaseq config set analysis.padj_threshold 0.05',
+    'lab-rnaseq config set analysis.padj_threshold 0.01',
     'lab-rnaseq config set analysis.log2fc_threshold 1',
     "lab-rnaseq config set genesets.gmt_files '/g/a.gmt,/g/b.gmt'",
     'lab-rnaseq config set figures.formats png'
   ]);
   assert.deepEqual(advCfg({ padj: '0.001' }), ['lab-rnaseq config set analysis.padj_threshold 0.001']);
-  assert.deepEqual(advCfg({ log2fc: '0.585' }), ['lab-rnaseq config set analysis.log2fc_threshold 0.585']);
+  assert.deepEqual(advCfg({ log2fc: '0.6' }), ['lab-rnaseq config set analysis.log2fc_threshold 0.6']);
   assert.deepEqual(advCfg({ formats: ['pdf'] }), ['lab-rnaseq config set figures.formats pdf']);
   assert.deepEqual(advCfg({ formats: ['pdf', 'png'] }), []);
   assert.deepEqual(advCfg({ gmt: '~/sets/x.gmt' }), ["lab-rnaseq config set genesets.gmt_files ~/'sets/x.gmt'"]);
@@ -415,11 +415,11 @@ test('advanced section: each field writes its own lines only when set', () => {
     assert.equal(got.filter((l, i) => l !== base[i]).length, n, k);
   }
   // config lines come before check, like the other settings
-  const all = cmdLines(build({ ...nfIso, padj: '0.05' }));
+  const all = cmdLines(build({ ...nfIso, padj: '0.01' }));
   assert.ok(all.findIndex((l) => l.includes('padj_threshold')) < all.indexOf('lab-rnaseq check'));
   // the count matrix has no expression/isoforms command: only the config settings apply
   const mx = cmdLines(build({ input: 'matrix', ...ADV }));
-  assert.ok(mx.includes('lab-rnaseq config set analysis.padj_threshold 0.05'));
+  assert.ok(mx.includes('lab-rnaseq config set analysis.padj_threshold 0.01'));
   assert.ok(!mx.some((l) => /--group-order|--run-name|--contrast|--run /.test(l)));
 });
 
@@ -498,5 +498,5 @@ test('advanced section: the choices survive the URL hash', () => {
   const st = { input: 'nfcore', isoforms: true, ...ADV, dry_run: true };
   const back = B.fromHash(spec, '#' + B.toHash(spec, st));
   assert.equal(text(back), text(st));
-  assert.equal(B.toHash(spec, { padj: '0.01', log2fc: '0.6', formats: ['pdf', 'png'] }), '');
+  assert.equal(B.toHash(spec, { padj: '0.05', log2fc: '0.585', formats: ['pdf', 'png'] }), '');
 });

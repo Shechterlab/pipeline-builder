@@ -480,9 +480,9 @@ test('proteomics: every lab-proteomics command the page can write uses real subc
     assert.ok(sub, `lab-proteomics has no ${w[1]}`);
     for (const x of w) { const flag = typeof x === 'string' ? (x.startsWith('--') ? x : null) : x.flag; if (flag) assert.ok(sub.options.some((o) => o.flags.includes(flag)), `${w[1]} ${flag}`); }
   }
-  assert.ok(problems(clis, 'lab-proteomics analyze --project-dir p --config c').length, 'the checker sees a missing --contrasts');
+  assert.ok(problems(clis, 'lab-proteomics init').length, 'the checker sees a missing --project-dir');
   assert.ok(problems(clis, 'lab-proteomics config set a.b c').length);
-  assert.ok(problems(clis, 'lab-proteomics check --project-dir p').length, '--config is required');
+  assert.deepEqual(problems(clis, 'lab-proteomics check --project-dir p'), [], '--config defaults to inputs/');
 });
 
 // the `key=value` arguments of the python config edit in a rendered command list
